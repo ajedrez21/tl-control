@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "team-ai/v1",
+  "artifactType": "work-result",
+  "artifactId": "result-be-4101-demo",
+  "generatedAt": "2026-10-02T19:00:00.000Z",
+  "workItem": {
+    "organization": "fabrikam-demo",
+    "project": "TL Control Demo",
+    "id": 4101,
+    "revision": 12,
+    "url": "https://dev.azure.com/fabrikam-demo/TL%20Control%20Demo/_workitems/edit/4101"
+  },
+  "contextVersion": 1,
+  "contextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kitVersion": "0.1.0-demo",
+  "repository": {
+    "repoId": "backend",
+    "branch": "feat/4101-clientes",
+    "headSha": "be22222222222222222222222222222222222222",
+    "baseSha": "bbb222be"
+  },
+  "changeId": "openspec-4101-be",
+  "codeFingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "verification": {
+    "status": "PASS",
+    "reportRef": "reports/verify-4101-be.md",
+    "checkedFingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "checkedAt": "2026-10-02T18:50:00.000Z"
+  },
+  "security": {
+    "status": "PASS",
+    "reportRef": "reports/sec-4101-be.md",
+    "checkedFingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "checkedAt": "2026-10-02T18:55:00.000Z"
+  },
+  "openspec": {
+    "proposalRef": "openspec/changes/4101-be/proposal.md",
+    "designRef": "openspec/changes/4101-be/design.md",
+    "tasksRef": "openspec/changes/4101-be/tasks.md",
+    "completedTasks": 5,
+    "totalTasks": 5
+  },
+  "commits": [
+    {
+      "sha": "be22222222222222222222222222222222222222",
+      "message": "feat: POST /api/clientes #4101",
+      "workItemIds": [4101]
+    }
+  ],
+  "pullRequests": [
+    { "id": "90", "url": "https://dev.azure.com/fabrikam-demo/demo/_git/backend/pullrequest/90", "status": "active" }
+  ],
+  "exceptions": [],
+  "prReadiness": { "status": "READY", "reasons": ["Gates PASS sobre fingerprint reportado"] }
+}

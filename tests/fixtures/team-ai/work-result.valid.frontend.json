@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "team-ai/v1",
+  "artifactType": "work-result",
+  "artifactId": "result-fe-4101-demo",
+  "generatedAt": "2026-10-02T18:00:00.000Z",
+  "workItem": {
+    "organization": "fabrikam-demo",
+    "project": "TL Control Demo",
+    "id": 4101,
+    "revision": 12,
+    "url": "https://dev.azure.com/fabrikam-demo/TL%20Control%20Demo/_workitems/edit/4101"
+  },
+  "contextVersion": 1,
+  "contextHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kitVersion": "0.1.0-demo",
+  "repository": {
+    "repoId": "frontend",
+    "branch": "feat/4101-alta-cliente",
+    "headSha": "fe11111111111111111111111111111111111111",
+    "baseSha": "aaa111fe"
+  },
+  "changeId": "openspec-4101-fe",
+  "codeFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "verification": {
+    "status": "PASS",
+    "reportRef": "reports/verify-4101-fe.md",
+    "checkedFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "checkedAt": "2026-10-02T17:50:00.000Z"
+  },
+  "security": {
+    "status": "NOT_RUN",
+    "reportRef": null,
+    "checkedFingerprint": null,
+    "checkedAt": null
+  },
+  "openspec": {
+    "proposalRef": "openspec/changes/4101-fe/proposal.md",
+    "designRef": "openspec/changes/4101-fe/design.md",
+    "tasksRef": "openspec/changes/4101-fe/tasks.md",
+    "completedTasks": 3,
+    "totalTasks": 4
+  },
+  "commits": [
+    {
+      "sha": "fe11111111111111111111111111111111111111",
+      "message": "feat: formulario alta cliente #4101",
+      "workItemIds": [4101]
+    }
+  ],
+  "pullRequests": [
+    { "id": "91", "url": "https://dev.azure.com/fabrikam-demo/demo/_git/frontend/pullrequest/91", "status": "active" }
+  ],
+  "exceptions": [],
+  "prReadiness": { "status": "BLOCKED", "reasons": ["Falta task OpenSpec de accesibilidad"] }
+}

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "team-ai/v1",
+  "artifactType": "work-context",
+  "artifactId": "ctx-4101-v1",
+  "generatedAt": "2026-10-03T05:39:28.304Z",
+  "workItem": {
+    "organization": "fabrikam-demo",
+    "project": "TL Control Demo",
+    "id": 4101,
+    "revision": 12,
+    "url": "https://dev.azure.com/fabrikam-demo/TL%20Control%20Demo/_workitems/edit/4101"
+  },
+  "parentWorkItem": null,
+  "contextVersion": 1,
+  "repositories": [
+    {
+      "repoId": "frontend",
+      "role": "frontend",
+      "baseRef": "main",
+      "baseSha": "aaa111fe"
+    },
+    {
+      "repoId": "backend",
+      "role": "backend",
+      "baseRef": "main",
+      "baseSha": "bbb222be"
+    }
+  ],
+  "summary": {
+    "functionalGoal": "Alta de cliente con validación fiscal",
+    "currentBehavior": "Ver análisis; no inventar comportamiento ausente.",
+    "expectedBehavior": "Dado un CUIT válido, el sistema persiste el cliente y muestra confirmación."
+  },
+  "scope": {
+    "included": [
+      "Clientes / Alta",
+      "Clientes"
+    ],
+    "excluded": [
+      "Cambios de SP",
+      "Refactors no pedidos"
+    ],
+    "candidateFiles": []
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "ac-1",
+      "text": "Dado un CUIT válido, el sistema persiste el cliente y muestra confirmación.",
+      "evidenceIds": []
+    }
+  ],
+  "contracts": [
+    {
+      "id": "ctr-api-clientes",
+      "kind": "API",
+      "version": "v1",
+      "status": "CONFIRMED",
+      "sourceEvidenceIds": [],
+      "definition": {
+        "inputs": [
+          {
+            "name": "cuit",
+            "type": "string",
+            "nullable": false,
+            "meaning": "CUIT"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "id",
+            "type": "string",
+            "nullable": false,
+            "meaning": "Id cliente"
+          }
+        ],
+        "errors": [
+          "400 CUIT inválido"
+        ],
+        "compatibilityNotes": "v1"
+      }
+    }
+  ],
+  "dependencies": [],
+  "evidence": [],
+  "gaps": [],
+  "testPlan": [
+    {
+      "id": "t-func-1",
+      "title": "Caso feliz",
+      "kind": "functional",
+      "steps": [
+        "Preparar datos de fixture",
+        "Ejecutar flujo"
+      ],
+      "command": ""
+    }
+  ],
+  "assignedTo": null,
+  "readiness": {
+    "status": "READY",
+    "reasons": [
+      "Contexto mínimo cubierto."
+    ]
+  },
+  "contextHash": "e1be70bd7c26c012b5814aceec34f03c2d6cde4176f2d9e7baa0804ca85c11fd"
+}

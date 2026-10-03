@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tl-control.local/schemas/team-ai/v1/work-context.json",
+  "title": "team-ai/v1 work-context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactType",
+    "artifactId",
+    "generatedAt",
+    "workItem",
+    "parentWorkItem",
+    "contextVersion",
+    "contextHash",
+    "repositories",
+    "summary",
+    "scope",
+    "acceptanceCriteria",
+    "contracts",
+    "dependencies",
+    "evidence",
+    "gaps",
+    "testPlan",
+    "assignedTo",
+    "readiness"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "team-ai/v1" },
+    "artifactType": { "const": "work-context" },
+    "artifactId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "workItem": { "$ref": "#/$defs/workItemRef" },
+    "parentWorkItem": {
+      "oneOf": [{ "$ref": "#/$defs/workItemRef" }, { "type": "null" }]
+    },
+    "contextVersion": { "type": "integer", "minimum": 1 },
+    "contextHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repoId", "role", "baseRef", "baseSha"],
+        "properties": {
+          "repoId": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["frontend", "backend", "shared"] },
+          "baseRef": { "type": "string", "minLength": 1 },
+          "baseSha": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["functionalGoal", "currentBehavior", "expectedBehavior"],
+      "properties": {
+        "functionalGoal": { "type": "string" },
+        "currentBehavior": { "type": "string" },
+        "expectedBehavior": { "type": "string" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "excluded", "candidateFiles"],
+      "properties": {
+        "included": { "type": "array", "items": { "type": "string" } },
+        "excluded": { "type": "array", "items": { "type": "string" } },
+        "candidateFiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/candidateFile" }
+        }
+      }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "evidenceIds"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "version", "status", "sourceEvidenceIds", "definition"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["API", "SP", "EVENT", "FILE"] },
+          "version": { "type": "string" },
+          "status": { "enum": ["UNKNOWN", "PROPOSED", "CONFIRMED", "NOT_APPLICABLE"] },
+          "sourceEvidenceIds": { "type": "array", "items": { "type": "string" } },
+          "definition": { "$ref": "#/$defs/contractDefinition" }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "status", "blocks", "evidenceIds"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["SP_CONTRACT", "SP_DEPLOYMENT", "API", "TASK", "REPO", "OTHER"] },
+          "status": { "enum": ["UNKNOWN", "PENDING", "SATISFIED", "NOT_APPLICABLE"] },
+          "blocks": { "type": "array", "items": { "type": "string" } },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "blocking", "evidenceIds"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "question": { "type": "string", "minLength": 1 },
+          "blocking": { "type": "boolean" },
+          "evidenceIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "testPlan": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testCase" }
+    },
+    "assignedTo": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "displayName", "role"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "displayName": { "type": "string" },
+            "role": { "enum": ["frontend", "backend", "other"] }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": { "enum": ["DRAFT", "BLOCKED", "READY"] },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "workItemRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "project", "id", "revision", "url"],
+      "properties": {
+        "organization": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "candidateFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason", "verified"],
+      "properties": {
+        "path": { "type": "string" },
+        "symbol": { "type": "string" },
+        "reason": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "sha": { "type": "string" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "source", "classification", "observedAt", "summary"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["work-item", "revision", "comment", "attachment", "code", "manual", "pipeline", "result"] },
+        "source": { "type": "string", "minLength": 1 },
+        "classification": { "enum": ["CONFIRMED", "INFERRED", "UNKNOWN"] },
+        "observedAt": { "type": "string", "format": "date-time" },
+        "summary": { "type": "string" }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "steps", "kind"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "kind": { "enum": ["functional", "technical", "regression"] },
+        "steps": { "type": "array", "items": { "type": "string" } },
+        "command": { "type": "string" }
+      }
+    },
+    "contractDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputs", "outputs", "errors", "compatibilityNotes"],
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "pagination": { "type": "string" },
+        "compatibilityNotes": { "type": "string" },
+        "example": { "type": "string" },
+        "availabilityByEnvironment": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "nullable", "meaning"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "nullable": { "type": "boolean" },
+        "default": { "type": ["string", "number", "boolean", "null"] },
+        "constraints": { "type": "string" },
+        "meaning": { "type": "string" }
+      }
+    }
+  }
+}

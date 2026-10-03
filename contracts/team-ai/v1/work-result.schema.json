@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tl-control.local/schemas/team-ai/v1/work-result.json",
+  "title": "team-ai/v1 work-result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactType",
+    "artifactId",
+    "generatedAt",
+    "workItem",
+    "contextVersion",
+    "contextHash",
+    "kitVersion",
+    "repository",
+    "changeId",
+    "codeFingerprint",
+    "verification",
+    "security",
+    "openspec",
+    "commits",
+    "pullRequests",
+    "exceptions",
+    "prReadiness"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "team-ai/v1" },
+    "artifactType": { "const": "work-result" },
+    "artifactId": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "workItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization", "project", "id", "revision", "url"],
+      "properties": {
+        "organization": { "type": "string", "minLength": 1 },
+        "project": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "revision": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "contextVersion": { "type": "integer", "minimum": 1 },
+    "contextHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "kitVersion": { "type": "string", "minLength": 1 },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repoId", "branch", "headSha", "baseSha"],
+      "properties": {
+        "repoId": { "type": "string" },
+        "branch": { "type": "string" },
+        "headSha": { "type": "string" },
+        "baseSha": { "type": "string" }
+      }
+    },
+    "changeId": { "type": "string" },
+    "codeFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "verification": { "$ref": "#/$defs/gate" },
+    "security": { "$ref": "#/$defs/gate" },
+    "openspec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposalRef", "designRef", "tasksRef", "completedTasks", "totalTasks"],
+      "properties": {
+        "proposalRef": { "type": "string" },
+        "designRef": { "type": "string" },
+        "tasksRef": { "type": "string" },
+        "completedTasks": { "type": "integer", "minimum": 0 },
+        "totalTasks": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha", "message", "workItemIds"],
+        "properties": {
+          "sha": { "type": "string" },
+          "message": { "type": "string" },
+          "workItemIds": { "type": "array", "items": { "type": "integer" } }
+        }
+      }
+    },
+    "pullRequests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "url", "status"],
+        "properties": {
+          "id": { "type": ["string", "integer"] },
+          "url": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason", "approvedBy", "expiresAt", "evidenceRef"],
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" },
+          "approvedBy": { "type": "string" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+          "evidenceRef": { "type": "string" }
+        }
+      }
+    },
+    "prReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": { "enum": ["READY", "BLOCKED", "UNKNOWN"] },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reportRef", "checkedFingerprint", "checkedAt"],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "REVIEW", "NOT_RUN", "NOT_AVAILABLE", "STALE"] },
+        "reportRef": { "type": ["string", "null"] },
+        "checkedFingerprint": { "type": ["string", "null"] },
+        "checkedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}

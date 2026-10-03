@@ -1,0 +1,95 @@
+{
+  "timezone": "America/Argentina/Buenos_Aires",
+  "agingUnit": "calendar-days",
+  "azure": {
+    "organization": "YOUR_ORG",
+    "project": "YOUR_PROJECT",
+    "process": "Agile",
+    "apiVersion": "7.1",
+    "areaPath": "",
+    "iterationPath": "",
+    "team": "",
+    "workItemTypes": {
+      "story": "User Story",
+      "task": "Task",
+      "bug": "Bug",
+      "feature": "Feature"
+    },
+    "fieldMap": {
+      "acceptanceCriteria": "Microsoft.VSTS.Common.AcceptanceCriteria",
+      "priority": "Microsoft.VSTS.Common.Priority",
+      "effort": "Microsoft.VSTS.Scheduling.StoryPoints",
+      "remaining": "Microsoft.VSTS.Scheduling.RemainingWork",
+      "stackRank": "Microsoft.VSTS.Common.StackRank"
+    },
+    "stateMapping": {
+      "New": "NEW",
+      "To Do": "NEW",
+      "Approved": "READY",
+      "Committed": "DOING",
+      "Active": "DOING",
+      "Resolved": "DEV_DONE",
+      "In Progress": "DOING",
+      "Ready": "READY",
+      "Blocked": "BLOCKED",
+      "Code Review": "REVIEW",
+      "QA": "QA",
+      "UAT": "UAT",
+      "Released": "PENDING_RELEASE",
+      "Done": "DEV_DONE",
+      "Closed": "DEV_DONE",
+      "Removed": "REMOVED"
+    },
+    "writes": {
+      "enabled": false
+    }
+  },
+  "team": {
+    "members": [
+      { "id": "fe-dev-1", "azureId": "", "displayName": "Frontend 1", "role": "frontend" },
+      { "id": "fe-dev-2", "azureId": "", "displayName": "Frontend 2", "role": "frontend" },
+      { "id": "be-dev-1", "azureId": "", "displayName": "Backend 1", "role": "backend" },
+      { "id": "be-dev-2", "azureId": "", "displayName": "Backend 2", "role": "backend" },
+      { "id": "be-dev-3", "azureId": "", "displayName": "Backend 3", "role": "backend" }
+    ]
+  },
+  "repositories": [
+    {
+      "repoId": "frontend",
+      "role": "frontend",
+      "localPath": "",
+      "baseRef": "main",
+      "analysisCommand": ""
+    },
+    {
+      "repoId": "backend",
+      "role": "backend",
+      "localPath": "",
+      "baseRef": "main",
+      "analysisCommand": ""
+    }
+  ],
+  "environments": {
+    "qa": { "alias": "QA", "azureEnv": "" },
+    "uat": { "alias": "UAT", "azureEnv": "" },
+    "production": { "alias": "PROD", "azureEnv": "" }
+  },
+  "alerts": {
+    "spPendingDays": 3,
+    "prOpenDays": 2,
+    "wipLimit": 2
+  },
+  "readiness": {
+    "requireConfirmedSpContract": true,
+    "requireAcceptanceCriteria": true,
+    "blockOnUnknownSp": true
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 4780
+  },
+  "paths": {
+    "dataDir": "data",
+    "reportsDir": "reports"
+  }
+}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>TL Control</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+  <a class="skip" href="#main">Saltar al contenido</a>
+  <header class="top">
+    <div>
+      <p class="brand">TL Control</p>
+      <p id="sprint-meta" class="muted">Cargando…</p>
+    </div>
+    <nav aria-label="Principal">
+      <a href="#/home" data-route="home">Inicio</a>
+      <a href="#/grid" data-route="grid">Grilla</a>
+      <a href="#/sp" data-route="sp">SP</a>
+      <a href="#/team" data-route="team">Equipo</a>
+      <a href="#/releases" data-route="releases">Releases</a>
+      <a href="#/security" data-route="security">Seguridad</a>
+      <a href="#/history" data-route="history">Historial</a>
+    </nav>
+    <div class="top-actions">
+      <button type="button" id="theme-btn" aria-pressed="false">Tema oscuro</button>
+      <button type="button" id="refresh-btn">Actualizar</button>
+    </div>
+  </header>
+  <div id="status-bar" class="status" role="status"></div>
+  <main id="main" tabindex="-1"></main>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <h2 id="modal-title">Sincronizar</h2>
+      <p>El dashboard no invoca Azure ni MCP. Última sync y cobertura se muestran en el encabezado.</p>
+      <pre id="sync-cmd"></pre>
+      <button type="button" id="modal-close">Cerrar</button>
+    </div>
+  </div>
+  <script src="/charts.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
