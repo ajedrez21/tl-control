@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { loadConfig, ensureLocalConfig, exampleConfigPath, dbPath, resolveDataDir, writeLocalConfig } from "../config/load.ts";
+import { loadConfig, ensureLocalConfig, exampleConfigPath, dbPath, resolveDataDir, writeLocalConfig, loadLocalEnv, azurePat } from "../config/load.ts";
 import { all, openDb, getMeta } from "../storage/db.ts";
 import { backupDb, restoreDb, audit } from "../storage/backup.ts";
 import { demoConfig, seedDemo } from "../demo/seed.ts";
@@ -16,7 +16,8 @@ import { listReleases } from "../metrics/releases.ts";
 import { startDashboardServer } from "../server/http.ts";
 import { importWorkResult } from "../adapters/kit/import.ts";
 import { importSecurityReport } from "../adapters/security/import.ts";
-import { previewPublish, applyPublish } from "./publish.ts";
+import { previewPublish } from "./publish.ts";
+import { publishApprovedDrafts } from "../analysis/drafts.ts";
 import { writeFrozenReport } from "../report/frozen.ts";
 import { nowIso } from "../domain/time.ts";
 
@@ -44,6 +45,7 @@ function print(data: unknown): void {
 }
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
+  loadLocalEnv();
   const { cmd, flags, rest } = parseArgs(argv);
   switch (cmd) {
     case "help":
@@ -83,9 +85,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       }
       const config = loadConfig();
       const iteration = String(flags.iteration ?? rest[0] ?? config.azure.iterationPath);
-      const pat = process.env.AZURE_DEVOPS_EXT_PAT || process.env.AZURE_DEVOPS_PAT;
+      const pat = azurePat();
       if (!pat) {
-        print({ ok: false, error: "Sin PAT. Usá --demo o definí AZURE_DEVOPS_EXT_PAT. No se inventa sync." });
+        print({ ok: false, error: "Sin PAT. Usá --demo, un .env local o definí AZURE_DEVOPS_EXT_PAT. No se inventa sync." });
         process.exitCode = 1;
         return;
       }
@@ -128,7 +130,11 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       const config = loadConfig();
       const db = openDb(dbPath(config));
       const preview = previewPublish(db, config, String(rest[0]), flags.rev ? Number(flags.rev) : undefined);
-      print(flags.confirm ? applyPublish(db, config, preview) : { preview, hint: "Repetí con --confirm. Sin writes.enabled sólo exporta." });
+      print(
+        flags.confirm
+          ? await publishApprovedDrafts(db, config, String(rest[0]), true)
+          : { preview, hint: "Repetí con --confirm. Con writes.enabled crea en Azure solo las aprobadas que todavía no existen." }
+      );
       db.close();
       return;
     }
@@ -178,7 +184,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       const handle = startDashboardServer({ config, port: flags.port ? Number(flags.port) : config.server.port });
       const hash = flags.story ? `#/story/${flags.story}` : flags.release ? "#/releases" : flags.sprint ? "#/grid" : "";
       print(`Dashboard: ${handle.url}${hash}`);
-      print("Ctrl+C para salir. El botón Actualizar muestra el comando de sync; no hay live sync automático.");
+      print("Ctrl+C para salir. Sync automático cada 1 hora. El botón Actualizar sincroniza y recarga.");
       if (!flags["no-open"]) openBrowser(`${handle.url}${hash}`);
       await new Promise(() => undefined);
       return;

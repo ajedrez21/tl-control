@@ -17,3 +17,8 @@ description: Calcula alertas y métricas determinísticas del sprint. Usar con /
 JSON de métricas (fórmula, unidad, fuente) y alertas enlazables.
 
 El LLM no inventa cálculos: usa la salida del CLI.
+
+## Límites de código (obligatorio)
+
+- Solo CLI y salida JSON. **No** editar repos de producto ni Azure.
+- **No** modificar código fuera de `tl-control` (esta skill no escribe archivos).

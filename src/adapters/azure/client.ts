@@ -1,10 +1,13 @@
 import type { AppConfig } from "../../config/types.ts";
+import { isPlaceholderOrg } from "../../config/types.ts";
 import { workItemKey } from "../../domain/ids.ts";
+import { resolveAssignee, upsertMembers } from "../../domain/members.ts";
 import { normalizeState } from "../../domain/states.ts";
 import { nowIso } from "../../domain/time.ts";
 import { emptyCoverage, withRetry, type CoverageMap, type HttpClient } from "../http.ts";
 import type { Db } from "../../storage/db.ts";
 import { withTransaction } from "../../storage/db.ts";
+import { markDemo, purgeDemoDataset } from "../../storage/backup.ts";
 
 export interface AzureAuth {
   pat?: string;
@@ -113,12 +116,172 @@ export class AzureDevOpsClient {
     return { revisions: json.value ?? [], status: "OK" };
   }
 
+  async addComment(azureId: number, text: string): Promise<{ id: number; createdDate: string }> {
+    const url = `${this.base()}/wit/workItems/${azureId}/comments?api-version=${this.config.azure.apiVersion}-preview.4`;
+    const res = await withRetry(this.http, {
+      method: "POST",
+      url,
+      headers: { ...authHeader(this.auth.pat), "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (res.status === 401 || res.status === 403) throw new Error("Azure rechazó el comentario (sin permiso).");
+    if (res.status >= 400) throw new Error("Azure no aceptó el comentario.");
+    const json = JSON.parse(res.body) as { id?: number; createdDate?: string };
+    if (!json.id) throw new Error("Azure no devolvió el comentario.");
+    return { id: json.id, createdDate: json.createdDate || new Date().toISOString() };
+  }
+
   async downloadAttachment(url: string): Promise<{ bytes: Buffer; status: CoverageMap["attachments"] }> {
     const res = await withRetry(this.http, { method: "GET", url, headers: authHeader(this.auth.pat) });
     if (res.status === 401 || res.status === 403) return { bytes: Buffer.alloc(0), status: "UNAUTHORIZED" };
     if (res.status >= 400) return { bytes: Buffer.alloc(0), status: "NOT_AVAILABLE" };
     return { bytes: Buffer.from(res.body, "binary"), status: "OK" };
   }
+
+  async findIdByTag(tag: string): Promise<number | null> {
+    const project = wiqlLiteral(this.config.azure.project);
+    const needle = wiqlLiteral(tag);
+    const { ids } = await this.wiql(
+      `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = ${project} AND [System.Tags] CONTAINS ${needle}`
+    );
+    return ids[0] ?? null;
+  }
+
+  async createChildWorkItem(input: {
+    type: string;
+    parentAzureId: number;
+    title: string;
+    description: string;
+    iterationPath: string;
+    areaPath: string;
+    assignedTo: string | null;
+    tag: string;
+  }): Promise<{ item: AzureWorkItem; reused: boolean }> {
+    const existingId = await this.findIdByTag(input.tag);
+    if (existingId) {
+      const found = await this.readWorkItem(existingId);
+      return { item: found, reused: true };
+    }
+
+    const parentUrl = `${this.base()}/wit/workItems/${input.parentAzureId}`;
+    let patch = workItemPatch(input, parentUrl);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const item = await this.postWorkItem(input.type, patch);
+        return { item, reused: false };
+      } catch (error) {
+        lastError = error;
+        if (!(error instanceof AzureUnavailableError) || error.status !== 400) break;
+        const next = dropRejectedField(patch, error.message);
+        if (!next) break;
+        patch = next;
+      }
+    }
+
+    const raced = await this.findIdByTag(input.tag).catch(() => null);
+    if (raced) return { item: await this.readWorkItem(raced), reused: true };
+    throw lastError instanceof Error ? lastError : new AzureUnavailableError("No se pudo crear la tarea en Azure", 500, "workItems");
+  }
+
+  private async readWorkItem(azureId: number): Promise<AzureWorkItem> {
+    const { items } = await this.getWorkItems([azureId]);
+    const item = items[0];
+    if (!item) throw new AzureUnavailableError(`No se pudo leer el work item ${azureId}`, 404, "workItems");
+    return item;
+  }
+
+  async updateWorkItemFields(azureId: number, fields: Record<string, string>): Promise<AzureWorkItem> {
+    const patch: JsonPatch[] = Object.entries(fields).map(([name, value]) => ({
+      op: "add",
+      path: `/fields/${name}`,
+      value
+    }));
+    const url = `${this.base()}/wit/workitems/${azureId}?api-version=${this.config.azure.apiVersion}`;
+    return this.sendWorkItemPatch(url, patch);
+  }
+
+  private async postWorkItem(type: string, patch: JsonPatch[]): Promise<AzureWorkItem> {
+    const url = `${this.base()}/wit/workitems/${encodeURIComponent(`$${type}`)}?api-version=${this.config.azure.apiVersion}`;
+    return this.sendWorkItemPatch(url, patch, "POST");
+  }
+
+  private async sendWorkItemPatch(url: string, patch: JsonPatch[], method: "POST" | "PATCH" = "PATCH"): Promise<AzureWorkItem> {
+    const res = await this.http.request({
+      method,
+      url,
+      headers: { "Content-Type": "application/json-patch+json", ...authHeader(this.auth.pat) },
+      body: JSON.stringify(patch)
+    });
+    if (res.status === 401 || res.status === 403) {
+      throw new AzureUnavailableError("Sin permiso para escribir work items en Azure", res.status, "workItems");
+    }
+    if (res.status >= 400) {
+      throw new AzureUnavailableError(shortAzureError(res.status, res.body), res.status, "workItems");
+    }
+    return JSON.parse(res.body) as AzureWorkItem;
+  }
+}
+
+interface JsonPatch {
+  op: "add";
+  path: string;
+  value: unknown;
+}
+
+function workItemPatch(
+  input: {
+    title: string;
+    description: string;
+    iterationPath: string;
+    areaPath: string;
+    assignedTo: string | null;
+    tag: string;
+  },
+  parentUrl: string
+): JsonPatch[] {
+  const patch: JsonPatch[] = [
+    { op: "add", path: "/fields/System.Title", value: input.title },
+    { op: "add", path: "/fields/System.Description", value: input.description },
+    { op: "add", path: "/fields/System.IterationPath", value: input.iterationPath },
+    { op: "add", path: "/fields/System.Tags", value: input.tag },
+    { op: "add", path: "/fields/Microsoft.VSTS.Common.Activity", value: "Development" },
+    {
+      op: "add",
+      path: "/relations/-",
+      value: { rel: "System.LinkTypes.Hierarchy-Reverse", url: parentUrl }
+    }
+  ];
+  if (input.areaPath) patch.push({ op: "add", path: "/fields/System.AreaPath", value: input.areaPath });
+  if (input.assignedTo) patch.push({ op: "add", path: "/fields/System.AssignedTo", value: input.assignedTo });
+  return patch;
+}
+
+function dropRejectedField(patch: JsonPatch[], message: string): JsonPatch[] | null {
+  const text = message.toLowerCase();
+  const path = text.includes("assigned")
+    ? "/fields/System.AssignedTo"
+    : text.includes("activity")
+      ? "/fields/Microsoft.VSTS.Common.Activity"
+      : null;
+  if (!path || !patch.some((op) => op.path === path)) return null;
+  return patch.filter((op) => op.path !== path);
+}
+
+function wiqlLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function shortAzureError(status: number, body: string): string {
+  let message = body;
+  try {
+    const json = JSON.parse(body) as { message?: string };
+    if (typeof json.message === "string" && json.message.trim()) message = json.message;
+  } catch {
+    message = body;
+  }
+  const clean = message.replace(/\s+/g, " ").trim().slice(0, 180);
+  return clean ? `Azure ${status}: ${clean}` : `Azure ${status}`;
 }
 
 export interface AzureWorkItem {
@@ -162,21 +325,20 @@ export function persistWorkItems(
   withTransaction(db, () => {
     for (const item of items) {
       const fields = item.fields ?? {};
-      const assigned = fields["System.AssignedTo"] as { id?: string; displayName?: string } | string | undefined;
-      const assignedId =
-        typeof assigned === "object" && assigned
-          ? (assigned.id ?? assigned.displayName ?? null)
-          : typeof assigned === "string"
-            ? assigned
-            : null;
+      const assignee = resolveAssignee(config.team.members, fields["System.AssignedTo"]);
+      const parentRel = (item.relations ?? []).find((rel) => rel.rel === "System.LinkTypes.Hierarchy-Reverse");
+      const parentAzureId = parentRel ? Number(extractIdFromUrl(parentRel.url) ?? "") : NaN;
+      const parentId = Number.isFinite(parentAzureId)
+        ? workItemKey(config.azure.organization, config.azure.project, parentAzureId)
+        : null;
       const id = workItemKey(config.azure.organization, config.azure.project, item.id);
       const original = String(fields["System.State"] ?? "Unknown");
       db.prepare(
         `INSERT INTO work_items (
           id, organization, project, azure_id, type, title, state_original, state_normalized,
-          iteration_id, area_path, priority, assigned_to_id, estimate, description_html,
+          iteration_id, area_path, priority, assigned_to_id, assigned_to_name, estimate, description_html,
           acceptance_criteria, url, source_revision, fetched_at, sync_run_id, parent_id, screen, module, tags
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           title=excluded.title,
           type=excluded.type,
@@ -186,6 +348,7 @@ export function persistWorkItems(
           area_path=excluded.area_path,
           priority=excluded.priority,
           assigned_to_id=excluded.assigned_to_id,
+          assigned_to_name=excluded.assigned_to_name,
           estimate=excluded.estimate,
           description_html=excluded.description_html,
           acceptance_criteria=excluded.acceptance_criteria,
@@ -207,7 +370,8 @@ export function persistWorkItems(
         String(fields["System.IterationPath"] ?? config.azure.iterationPath ?? ""),
         String(fields["System.AreaPath"] ?? ""),
         Number(fields[config.azure.fieldMap.priority] ?? fields["Microsoft.VSTS.Common.Priority"] ?? 2),
-        assignedId,
+        assignee.memberId ?? assignee.azureId,
+        assignee.displayName,
         Number(fields[config.azure.fieldMap.effort] ?? 0) || null,
         String(fields["System.Description"] ?? ""),
         String(fields[config.azure.fieldMap.acceptanceCriteria] ?? ""),
@@ -215,7 +379,7 @@ export function persistWorkItems(
         item.rev,
         fetchedAt,
         syncRunId,
-        null,
+        parentId,
         null,
         null,
         String(fields["System.Tags"] ?? "")
@@ -282,9 +446,15 @@ export async function syncIteration(
 
   const coverage = emptyCoverage();
   try {
-    const typeStory = config.azure.workItemTypes.story ?? "User Story";
-    const typeTask = config.azure.workItemTypes.task ?? "Task";
-    const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.IterationPath] UNDER '${iterationPath.replaceAll("'", "''")}' AND [System.WorkItemType] IN ('${typeStory}', '${typeTask}')`;
+    const types = [...new Set([
+      config.azure.workItemTypes.story ?? "User Story",
+      config.azure.workItemTypes.task ?? "Task",
+      config.azure.workItemTypes.bug ?? "Bug",
+      config.azure.workItemTypes.feature ?? "Feature",
+      "Product Backlog Item"
+    ].filter(Boolean))];
+    const typeList = types.map((t) => `'${t.replaceAll("'", "''")}'`).join(", ");
+    const wiql = `SELECT [System.Id] FROM WorkItems WHERE [System.IterationPath] UNDER '${iterationPath.replaceAll("'", "''")}' AND [System.WorkItemType] IN (${typeList})`;
     const { ids } = await client.wiql(wiql);
     const { items } = await client.getWorkItems(ids);
     coverage.workItems = "OK";
@@ -310,6 +480,11 @@ export async function syncIteration(
     coverage.deployments = "NOT_AVAILABLE";
 
     persistWorkItems(db, config, items, syncRunId, { comments, revisions });
+    upsertMembers(db, config);
+    if (!isPlaceholderOrg(config.azure.organization)) {
+      purgeDemoDataset(db);
+      markDemo(db, false);
+    }
     db.prepare(
       "UPDATE sync_runs SET finished_at = ?, status = ?, coverage_json = ? WHERE id = ?"
     ).run(nowIso(), "ok", JSON.stringify(coverage), syncRunId);

@@ -99,6 +99,17 @@ export function countByState(db: Db, iterationId: string): Record<string, number
   return out;
 }
 
+export function countByStateAll(db: Db, iterationId: string): Record<string, number> {
+  const rows = all<{ state_normalized: NormalizedState; n: number }>(
+    db,
+    "SELECT state_normalized, COUNT(*) AS n FROM work_items WHERE iteration_id = ? GROUP BY state_normalized",
+    iterationId
+  );
+  const out: Record<string, number> = {};
+  for (const row of rows) out[row.state_normalized] = Number(row.n);
+  return out;
+}
+
 export function computeSprintMetrics(db: Db, iterationId: string, asOf: string): SprintSnapshotMetrics {
   const byState = countByState(db, iterationId);
   const unassignedReady = Number(

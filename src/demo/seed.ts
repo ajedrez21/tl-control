@@ -66,6 +66,7 @@ export function demoConfig(): AppConfig {
       writes: { enabled: false }
     },
     team: {
+      defaultOwnerId: "fe-lucia",
       members: [
         { id: "fe-lucia", azureId: "aad-lucia", displayName: "Lucía Fernández", role: "frontend" },
         { id: "fe-martin", azureId: "aad-martin", displayName: "Martín Soto", role: "frontend" },
@@ -111,7 +112,7 @@ export function seedDemo(db: Db, dataDir: string): void {
       DELETE FROM evidence; DELETE FROM attachments; DELETE FROM comments;
       DELETE FROM work_item_relations; DELETE FROM work_item_revisions;
       DELETE FROM scope_events; DELETE FROM sprint_baselines; DELETE FROM snapshots;
-      DELETE FROM pull_requests; DELETE FROM work_items; DELETE FROM tl_notes;
+      DELETE FROM pull_requests; DELETE FROM work_items; DELETE FROM tl_notes; DELETE FROM member_board;
       DELETE FROM sync_runs; DELETE FROM repositories; DELETE FROM members;
       DELETE FROM iterations; DELETE FROM projects; DELETE FROM audit_log;
     `);
@@ -229,6 +230,15 @@ export function seedDemo(db: Db, dataDir: string): void {
     insertTask(db, 5104, 4106, "FE: filtro sucursal", "Ready", null, "frontend");
     insertTask(db, 5105, 4109, "BE: job de email", "Resolved", "be-diego", "backend");
     insertTask(db, 5106, 4112, "FE: botón SSO", "Code Review", "fe-lucia", "frontend");
+    run(db, "UPDATE work_items SET description_html = ? WHERE azure_id = 5101", "<p>Validar DNI único en POST /clientes. Incluir ejemplo del request.</p>");
+    run(db, "INSERT INTO member_board(member_id, work_item_id, column_id, note, started_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "fe-lucia", idOf(5102), "in_progress", "Arrancó el formulario de alta.", now, now);
+    run(db, "INSERT INTO member_board(member_id, work_item_id, column_id, note, started_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "be-paula", idOf(5101), "in_progress", "Endpoint de clientes en curso.", now, now);
+    run(db, "INSERT INTO member_board(member_id, work_item_id, column_id, note, started_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "fe-martin", idOf(4105), "inicio", "Hoy arranca edición de perfil.", null, now);
+    run(db, "INSERT INTO member_board(member_id, work_item_id, column_id, note, started_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "be-diego", idOf(5105), "terminando", "Falta evidencia de QA del job de email.", now, now);
 
     run(db, "UPDATE work_items SET iteration_id = ? WHERE azure_id = 4107", ITER);
     run(db, "INSERT INTO comments VALUES (?, ?, ?, ?, ?, ?, ?)", `${idOf(4105)}/comment/1`, idOf(4105), "pm-1", "Producto", "2026-09-29T15:00:00.000Z", "<p>El email SÍ debe poder editarse para correcciones.</p>", 4);
@@ -244,8 +254,24 @@ export function seedDemo(db: Db, dataDir: string): void {
     insertEvidence(db, "ev-4105-desc", idOf(4105), "work-item", `${idOf(4105)}#description`, "CONFIRMED", now, "Descripción: el email no se edita.", null, null, null);
     insertEvidence(db, "ev-4105-cmt", idOf(4105), "comment", `${idOf(4105)}/comment/1`, "CONFIRMED", now, "Comentario: el email sí se edita.", null, null, null);
 
-    run(db, "INSERT INTO questions VALUES (?, ?, ?, ?, ?)", "q-4102-1", idOf(4102), "¿Qué campos del comprobante son obligatorios y cuál es el OCR aceptable?", 1, JSON.stringify(["ev-4102-img"]));
-    run(db, "INSERT INTO questions VALUES (?, ?, ?, ?, ?)", "q-4105-1", idOf(4105), "¿El email es editable o no? Descripción y comentario se contradicen.", 1, JSON.stringify(["ev-4105-desc", "ev-4105-cmt"]));
+    run(
+      db,
+      "INSERT INTO questions(id, work_item_id, question, blocking, evidence_ids) VALUES (?, ?, ?, ?, ?)",
+      "q-4102-1",
+      idOf(4102),
+      "¿Qué campos del comprobante son obligatorios y cuál es el OCR aceptable?",
+      1,
+      JSON.stringify(["ev-4102-img"])
+    );
+    run(
+      db,
+      "INSERT INTO questions(id, work_item_id, question, blocking, evidence_ids) VALUES (?, ?, ?, ?, ?)",
+      "q-4105-1",
+      idOf(4105),
+      "¿El email es editable o no? Descripción y comentario se contradicen.",
+      1,
+      JSON.stringify(["ev-4105-desc", "ev-4105-cmt"])
+    );
 
     insertContract(db, "ctr-sp-mov", idOf(4103), "SP", "dbo.usp_Movimientos_Listar", "UNKNOWN", null);
     insertContract(db, "ctr-sp-csv", idOf(4104), "SP", "dbo.usp_Movimientos_Exportar", "CONFIRMED", JSON.stringify({
@@ -407,6 +433,6 @@ function insertDep(db: Db, id: string, wi: string, kind: string, status: string,
 }
 
 function insertDraft(db: Db, id: string, parent: string, title: string, layer: string, assigned: string | null): void {
-  run(db, "INSERT INTO draft_tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    id, parent, title, layer, assigned, JSON.stringify({ objetivo: title, assigned: assigned ?? "UNASSIGNED" }), null, "local", id);
+  run(db, "INSERT INTO draft_tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    id, parent, title, layer, assigned, JSON.stringify({ objetivo: title, assigned: assigned ?? "UNASSIGNED" }), null, "local", "pending", id);
 }

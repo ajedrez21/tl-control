@@ -4,3 +4,5 @@ description: Estado de releases y deploys en TL Control. Usar con /release-statu
 ---
 
 Seguí `skills/release-status/SKILL.md`. Comando: `npx tsx src/cli/index.ts release-status`.
+
+**Límites:** respetá «Límites de código» del skill canónico.

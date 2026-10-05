@@ -16,9 +16,34 @@ export function openDb(path: string): Db {
 
 export function migrate(db: Db): void {
   db.exec(SCHEMA_SQL);
+  const cols = db.prepare("PRAGMA table_info(work_items)").all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "assigned_to_name")) {
+    db.exec("ALTER TABLE work_items ADD COLUMN assigned_to_name TEXT");
+  }
   const version = getMeta(db, "schema_version") ?? "0";
   const current = Number(version);
   if (current < 1) setMeta(db, "schema_version", "1");
+  if (current < 2) setMeta(db, "schema_version", "2");
+  if (current < 3) {
+    const draftCols = db.prepare("PRAGMA table_info(draft_tasks)").all() as Array<{ name: string }>;
+    if (!draftCols.some((c) => c.name === "review_status")) {
+      db.exec("ALTER TABLE draft_tasks ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'");
+    }
+    setMeta(db, "schema_version", "3");
+  }
+  if (current < 4) {
+    const questionCols = db.prepare("PRAGMA table_info(questions)").all() as Array<{ name: string }>;
+    const addQuestionCol = (name: string, ddl: string) => {
+      if (!questionCols.some((col) => col.name === name)) db.exec(`ALTER TABLE questions ADD COLUMN ${ddl}`);
+    };
+    addQuestionCol("status", "status TEXT NOT NULL DEFAULT 'pending'");
+    addQuestionCol("code", "code TEXT");
+    addQuestionCol("asked_at", "asked_at TEXT");
+    addQuestionCol("answered_at", "answered_at TEXT");
+    addQuestionCol("posted_at", "posted_at TEXT");
+    setMeta(db, "schema_version", "4");
+  }
+  if (current < 5) setMeta(db, "schema_version", "5");
 }
 
 export function getMeta(db: Db, key: string): string | undefined {

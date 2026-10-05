@@ -35,6 +35,10 @@ export function validateConfig(config: AppConfig): void {
   if (fe < 1 || be < 1) {
     throw new Error("El equipo debe declarar al menos un frontend y un backend (composición configurable).");
   }
+  const ownerId = config.team.defaultOwnerId?.trim();
+  if (ownerId && !config.team.members.some((m) => m.id === ownerId)) {
+    throw new Error(`config.team.defaultOwnerId no existe en members: ${ownerId}`);
+  }
 }
 
 export function ensureLocalConfig(): string {
@@ -72,4 +76,37 @@ export function resolveReportsDir(config: AppConfig): string {
 
 export function dbPath(config: AppConfig): string {
   return join(resolveDataDir(config), "tl-control.sqlite");
+}
+
+let envLoaded = false;
+
+export function loadLocalEnv(): void {
+  if (envLoaded) return;
+  envLoaded = true;
+  const path = join(ROOT, ".env");
+  if (!existsSync(path)) return;
+  for (const raw of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    if (process.env[key] !== undefined) continue;
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
+
+export function azurePat(): string | undefined {
+  loadLocalEnv();
+  const value = process.env.AZURE_DEVOPS_EXT_PAT || process.env.AZURE_DEVOPS_PAT;
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }

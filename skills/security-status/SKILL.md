@@ -16,3 +16,7 @@ description: Importa y muestra reportes de seguridad existentes sin modificar el
 ## Salidas
 
 Reportes y findings. Referencias relativas, no comandos del JSON.
+
+## Límites de código (obligatorio)
+
+- Importar/mostrar reportes en `tl-control` únicamente. **No** remediar vulnerabilidades ni tocar código de la app auditada.

@@ -2,7 +2,7 @@
   "schemaVersion": "team-ai/v1",
   "artifactType": "work-context",
   "artifactId": "ctx-4101-v1",
-  "generatedAt": "2026-10-03T05:39:28.304Z",
+  "generatedAt": "2026-10-05T14:38:35.989Z",
   "workItem": {
     "organization": "fabrikam-demo",
     "project": "TL Control Demo",
@@ -34,7 +34,8 @@
   "scope": {
     "included": [
       "Clientes / Alta",
-      "Clientes"
+      "Clientes",
+      "#5101 BE: endpoint POST /clientes"
     ],
     "excluded": [
       "Cambios de SP",
@@ -44,7 +45,7 @@
   },
   "acceptanceCriteria": [
     {
-      "id": "ac-1",
+      "id": "ac-4101",
       "text": "Dado un CUIT válido, el sistema persiste el cliente y muestra confirmación.",
       "evidenceIds": []
     }
@@ -81,7 +82,32 @@
     }
   ],
   "dependencies": [],
-  "evidence": [],
+  "evidence": [
+    {
+      "id": "ev-desc-4101",
+      "kind": "work-item",
+      "source": "#4101#description",
+      "classification": "CONFIRMED",
+      "observedAt": "2026-10-05T14:38:35.989Z",
+      "summary": "Descripción de #4101 Alta de cliente con validación fiscal: Permitir dar de alta un cliente persona jurídica con CUIT y validación AFIP."
+    },
+    {
+      "id": "ev-ac-4101",
+      "kind": "work-item",
+      "source": "#4101#ac",
+      "classification": "CONFIRMED",
+      "observedAt": "2026-10-05T14:38:35.989Z",
+      "summary": "AC de #4101: Dado un CUIT válido, el sistema persiste el cliente y muestra confirmación."
+    },
+    {
+      "id": "ev-desc-5101",
+      "kind": "work-item",
+      "source": "#5101#description",
+      "classification": "CONFIRMED",
+      "observedAt": "2026-10-05T14:38:35.989Z",
+      "summary": "Descripción de #5101 BE: endpoint POST /clientes: Validar DNI único en POST /clientes. Incluir ejemplo del request."
+    }
+  ],
   "gaps": [],
   "testPlan": [
     {
@@ -102,5 +128,5 @@
       "Contexto mínimo cubierto."
     ]
   },
-  "contextHash": "e1be70bd7c26c012b5814aceec34f03c2d6cde4176f2d9e7baa0804ca85c11fd"
+  "contextHash": "ecdb49b340f9280265aba0d2e27f13010833f9a01f64345e7f130253951ccf78"
 }

@@ -21,6 +21,13 @@ ID de historia.
 
 Contratos, dependencias, intervalos de bloqueo, aging.
 
+## Límites de código (obligatorio)
+
+- **Modo:** análisis de contratos SP y bloqueos. **No implementar** SP ni cambios en repos de producto.
+- **Permitido en `tl-control`:** CLI `analyze-sp`, lectura de artefactos que el CLI ya indexó.
+- **Repos de producto:** solo lectura si hace falta contrastar nombres; sin editar `.cs`, `.sql`, etc.
+- **Prohibido:** crear/alterar SP, parches en backend, o “dejar listo” el contrato en código.
+
 ## Escritura
 
-Ninguna sobre DB ni Azure.
+Ninguna sobre DB de producto ni Azure. No modificar archivos fuera de lo que persista el CLI en `tl-control`.

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS work_items (
   area_path TEXT,
   priority INTEGER,
   assigned_to_id TEXT,
+  assigned_to_name TEXT,
   estimate REAL,
   description_html TEXT,
   acceptance_criteria TEXT,
@@ -182,6 +183,7 @@ CREATE TABLE IF NOT EXISTS draft_tasks (
   payload_json TEXT NOT NULL,
   azure_id INTEGER,
   publish_status TEXT NOT NULL,
+  review_status TEXT NOT NULL DEFAULT 'pending',
   idempotency_key TEXT UNIQUE
 );
 
@@ -319,6 +321,15 @@ CREATE TABLE IF NOT EXISTS tl_notes (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS member_board (
+  member_id TEXT PRIMARY KEY,
+  work_item_id TEXT,
+  column_id TEXT NOT NULL DEFAULT 'inicio',
+  note TEXT NOT NULL DEFAULT '',
+  started_at TEXT,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sync_runs (
   id TEXT PRIMARY KEY,
   started_at TEXT NOT NULL,
@@ -334,7 +345,12 @@ CREATE TABLE IF NOT EXISTS questions (
   work_item_id TEXT NOT NULL,
   question TEXT NOT NULL,
   blocking INTEGER NOT NULL,
-  evidence_ids TEXT
+  evidence_ids TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  code TEXT,
+  asked_at TEXT,
+  answered_at TEXT,
+  posted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pull_requests (

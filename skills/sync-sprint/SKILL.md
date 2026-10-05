@@ -23,12 +23,18 @@ description: Sincroniza un sprint de Azure DevOps hacia el cache SQLite de TL Co
 
 Herramientas reales del server local Microsoft (`docs` TOOLSET 2026-10-03): `wit_work_item` (get, get_batch, list_comments, list_revisions, list_for_iteration), `wit_query` wiql, attachments, PRs, pipelines. No asumir nombres de ejemplos conversacionales. Si una fuente no está, marcar `NOT_AVAILABLE`.
 
-La web **no** llama MCP. El botón Actualizar muestra este comando.
+La web **no** llama MCP. Con el dashboard abierto, el servidor sincroniza cada 1 hora y el botón Actualizar dispara la misma sync.
 
 ## Salidas
 
 JSON de cobertura + SQLite en `data/`. Sin secretos.
 
+## Límites de código (obligatorio)
+
+- **Modo:** ingestión Azure → cache local. **No** tocar repos de producto ni implementar historias.
+- **Permitido:** CLI `sync`, SQLite/`data/` en `tl-control`, lectura Azure.
+- **Prohibido:** editar cualquier archivo fuera de `tl-control` salvo lo que el comando de sync persista.
+
 ## Escritura
 
-Sólo lectura Azure. No crear/editar Work Items.
+Sólo lectura Azure. No crear/editar Work Items. No parches en código de aplicación.

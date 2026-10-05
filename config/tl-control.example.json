@@ -45,6 +45,7 @@
     }
   },
   "team": {
+    "defaultOwnerId": "be-dev-1",
     "members": [
       { "id": "fe-dev-1", "azureId": "", "displayName": "Frontend 1", "role": "frontend" },
       { "id": "fe-dev-2", "azureId": "", "displayName": "Frontend 2", "role": "frontend" },

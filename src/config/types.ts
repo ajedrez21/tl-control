@@ -18,6 +18,7 @@ export interface AppConfig {
     writes: { enabled: boolean };
   };
   team: {
+    defaultOwnerId?: string;
     members: Array<{
       id: string;
       azureId: string;

@@ -4,17 +4,24 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>TL Control</title>
-  <link rel="stylesheet" href="/styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/styles.css?v=ui-kanban5"/>
 </head>
 <body>
   <a class="skip" href="#main">Saltar al contenido</a>
   <header class="top">
-    <div>
-      <p class="brand">TL Control</p>
-      <p id="sprint-meta" class="muted">Cargando…</p>
+    <div class="brand-wrap">
+      <div class="logo" aria-hidden="true">TL</div>
+      <div>
+        <p class="brand">TL Control</p>
+        <p id="sprint-meta" class="muted">Cargando…</p>
+      </div>
     </div>
     <nav aria-label="Principal">
       <a href="#/home" data-route="home">Inicio</a>
+      <a href="#/seguimiento" data-route="seguimiento">Seguimiento</a>
       <a href="#/grid" data-route="grid">Grilla</a>
       <a href="#/sp" data-route="sp">SP</a>
       <a href="#/team" data-route="team">Equipo</a>
@@ -23,8 +30,8 @@
       <a href="#/history" data-route="history">Historial</a>
     </nav>
     <div class="top-actions">
-      <button type="button" id="theme-btn" aria-pressed="false">Tema oscuro</button>
-      <button type="button" id="refresh-btn">Actualizar</button>
+      <button type="button" id="theme-btn" class="icon-btn" aria-pressed="false" aria-label="Cambiar a tema oscuro" title="Tema oscuro"></button>
+      <button type="button" id="refresh-btn" class="primary" title="Sincroniza Azure y recarga esta vista">Sincronizar</button>
     </div>
   </header>
   <div id="status-bar" class="status" role="status"></div>
@@ -32,12 +39,12 @@
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-card">
       <h2 id="modal-title">Sincronizar</h2>
-      <p>El dashboard no invoca Azure ni MCP. Última sync y cobertura se muestran en el encabezado.</p>
+      <p>También podés sincronizar desde la terminal. El botón Sincronizar lo hace solo y recarga la vista.</p>
       <pre id="sync-cmd"></pre>
-      <button type="button" id="modal-close">Cerrar</button>
+      <button type="button" id="modal-close" class="primary">Cerrar</button>
     </div>
   </div>
   <script src="/charts.js"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=ui-kanban7"></script>
 </body>
 </html>

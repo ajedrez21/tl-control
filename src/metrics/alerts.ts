@@ -24,6 +24,8 @@ export function refreshAlerts(db: Db, config: AppConfig, iterationId: string, as
   );
 
   for (const dep of all<DepRow>(db, "SELECT * FROM dependencies WHERE status IN ('PENDING','UNKNOWN') AND blocked_at IS NOT NULL")) {
+    const owner = get<{ iteration_id: string }>(db, "SELECT iteration_id FROM work_items WHERE id = ?", dep.work_item_id);
+    if (!owner || owner.iteration_id !== iterationId) continue;
     const days = calendarDaysBetween(dep.blocked_at, asOf, config.timezone);
     if (days >= config.alerts.spPendingDays && (dep.kind === "SP_CONTRACT" || dep.kind === "SP_DEPLOYMENT")) {
       alerts.push(make(

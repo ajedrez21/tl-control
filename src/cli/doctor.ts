@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { loadConfig, localConfigPath, exampleConfigPath, dbPath, projectRoot } from "../config/load.ts";
+import { loadConfig, localConfigPath, exampleConfigPath, dbPath, projectRoot, azurePat } from "../config/load.ts";
 import { isPlaceholderOrg } from "../config/types.ts";
 import { dbExists } from "../storage/db.ts";
 
@@ -54,13 +54,13 @@ export function runDoctor(): { ok: boolean; checks: DoctorCheck[] } {
     });
   }
 
-  const pat = process.env.AZURE_DEVOPS_EXT_PAT || process.env.AZURE_DEVOPS_PAT;
+  const pat = azurePat();
   checks.push({
     id: "azure-auth",
     status: pat ? "authenticated" : "unconfigured",
     detail: pat
       ? "PAT presente en entorno (no se muestra)."
-      : "Sin AZURE_DEVOPS_EXT_PAT ni AZURE_DEVOPS_PAT. El modo demo no lo requiere."
+      : "Sin AZURE_DEVOPS_EXT_PAT ni AZURE_DEVOPS_PAT ni .env local. El modo demo no lo requiere."
   });
 
   checks.push({

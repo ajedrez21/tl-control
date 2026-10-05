@@ -16,3 +16,7 @@ description: Muestra paquetes de release, componentes, deploys y Work Items incl
 ## Salidas
 
 JSON de releases. Fuente por evento.
+
+## Límites de código (obligatorio)
+
+- Solo lectura vía CLI. **No** editar pipelines, repos de deploy ni código de producto.

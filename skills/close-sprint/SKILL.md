@@ -14,3 +14,7 @@ description: Captura el cierre de sprint y genera un HTML congelado offline. Usa
 ## Salidas
 
 `reports/sprint-<id>-<timestamp>.html` + fila `snapshots.closed=1`.
+
+## Límites de código (obligatorio)
+
+- Solo CLI y reportes en `tl-control`. **No** repos de producto ni cambios en Azure.
