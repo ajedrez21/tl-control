@@ -179,15 +179,19 @@ async function renderHome() {
     <section class="cards">${data.cards.map(cardHtml).join("")}</section>
     <section class="panel sql-gaps">
       <h2>Falta definición SQL</h2>
-      <p class="hint">No es el estado Bloqueado. Son historias o tareas analizadas a las que les falta el contrato del SP. El texto se copia para pedir la definición o para indicar qué SP es el de la pantalla.</p>
+      <p class="hint">No es el estado Bloqueado. Analyze SP abre Cursor con el id para cargar el contrato, reanalizar historia/tareas (por si lo subieron ahí) o marcar que no hace falta. La traza y el PDF están en <a href="#/sp">SP</a>.</p>
       ${data.sqlGaps?.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>Ítem</th><th>Pantalla</th><th>SP</th><th>Pedido</th><th>Texto</th></tr></thead>
+        <thead><tr><th>Ítem</th><th>Pantalla</th><th>SP</th><th>Pedido</th><th></th><th>Texto</th></tr></thead>
         <tbody>${data.sqlGaps.map((gap, index) => `
           <tr>
             <td class="item"><a href="#/story/${gap.azureId}">#${gap.azureId} ${esc(gap.title)}</a></td>
             <td>${esc(gap.screen || "—")}</td>
             <td>${esc(gap.spName || "Nuevo")}</td>
             <td>${esc(sqlChangeLabel(gap))}</td>
+            <td class="sql-actions">
+              ${cmdSkillButton("analyze-sp", gap.azureId)}
+              <button type="button" class="sql-dismiss" data-sql-dismiss="${gap.azureId}">No hace falta</button>
+            </td>
             <td class="sql-copy">
               <button type="button" class="cmd-copy" data-sql-copy="${index}" title="Copiar texto">${copyIconSvg()}<span class="sr">Copiar</span></button>
               <p>${esc(gap.copyText)}</p>
@@ -279,6 +283,33 @@ function wireDaily(data) {
   main.querySelectorAll("[data-card]").forEach((btn) => {
     btn.addEventListener("click", () => {
       location.hash = `#/card/${btn.dataset.card}`;
+    });
+  });
+  wireCmdCopyButtons(main);
+  main.querySelectorAll("[data-sql-dismiss]").forEach((btn) => {
+    btn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const azureId = btn.dataset.sqlDismiss;
+      if (!azureId) {
+        status("error", "No pude leer el id de la tarea.");
+        return;
+      }
+      if (btn.dataset.busy === "1") return;
+      btn.dataset.busy = "1";
+      btn.disabled = true;
+      const previous = btn.textContent;
+      btn.textContent = "Sacando…";
+      try {
+        await postLocal("/api/sql-gaps/dismiss", { azureId });
+        status("ok", `#${azureId} ya no figura como falta de contrato SP`);
+        await renderHome();
+      } catch (error) {
+        btn.dataset.busy = "0";
+        btn.disabled = false;
+        btn.textContent = previous;
+        status("error", error instanceof Error ? error.message : "No se pudo sacar el faltante.");
+      }
     });
   });
   main.querySelectorAll("[data-sql-copy]").forEach((btn) => {
@@ -562,10 +593,14 @@ function checkIconSvg() {
 }
 
 function skillCommand(kind, azureId) {
+  if (kind === "analyze-sp") {
+    return `/analyze-sp ${azureId}\n\nRevisá #${azureId}. Sincronizá si hace falta y mirá la historia y las subtareas: puede que hayan subido el contrato ahí. Si te paso el contrato, cargalo (sin inventar firma). Si al final no hace falta SP, sacalo de Falta definición SQL.`;
+  }
   return kind === "analyze" ? `/analyze-story ${azureId}` : `/prepare-story ${azureId}`;
 }
 
 function skillLabel(kind) {
+  if (kind === "analyze-sp") return "Analyze SP";
   return kind === "analyze" ? "Analyze" : "Prepare";
 }
 
@@ -575,10 +610,14 @@ function cursorPromptHref(text) {
 
 function skillTimesFromStory(data) {
   const analyzed = (data.analyses || []).find((a) => a.kind === "functional");
+  const sp = (data.analyses || []).find((a) => a.kind === "sp");
   const prepared = data.packages?.[0];
+  const spOpen = (data.contracts || []).some((c) => c.kind === "SP" && !["CONFIRMED", "CONTRACT_CONFIRMED", "AVAILABLE", "VALIDATED", "NOT_APPLICABLE"].includes(c.status));
   return {
     analyzedAt: analyzed?.created_at || null,
-    preparedAt: prepared?.created_at || null
+    preparedAt: prepared?.created_at || null,
+    spAnalyzedAt: sp?.created_at || null,
+    spNeeded: spOpen
   };
 }
 
@@ -596,6 +635,7 @@ function cmdCopyButtons(azureId, times = {}) {
   return `<span class="cmd-actions" role="group" aria-label="Ejecutar skills en Cursor">
     ${cmdSkillButton("analyze", azureId, times.analyzedAt)}
     ${cmdSkillButton("prepare", azureId, times.preparedAt)}
+    ${times.spNeeded ? cmdSkillButton("analyze-sp", azureId, times.spAnalyzedAt) : ""}
   </span>`;
 }
 
@@ -654,7 +694,7 @@ async function renderGrid() {
   const { rows } = await api(`/api/grid${teamOnly ? "" : "?scope=all"}`);
   main.innerHTML = `
     <h1>Grilla del sprint</h1>
-    <p class="hint">Orden: bugs → historias/PBI → tareas sueltas. Las hijas quedan debajo de su padre. No se muestran ítems bloqueados ni hijas de una historia bloqueada. ${teamOnly ? "Solo ítems de tu equipo (config)." : "Mostrando todo el sprint."}</p>
+    <p class="hint">Orden: bugs → historias/PBI → tareas sueltas. Las hijas quedan debajo de su padre. No se muestran ítems bloqueados ni hijas de una historia bloqueada. ${teamOnly ? "Solo ítems de tu equipo (config)." : "Mostrando todo el sprint."} <strong>Pendientes de generar</strong> = subtareas IA sin asignar, por aprobar o sin publicar en Azure.</p>
     <div class="toolbar">
       <label class="check"><input type="checkbox" id="f-team" ${teamOnly ? "checked" : ""}/> Solo equipo</label>
       <label>Buscar <input id="q" value="${esc(saved.q || "")}" placeholder="ID o texto"/></label>
@@ -663,6 +703,7 @@ async function renderGrid() {
       <label>Dev <select id="f-owner">${opts(["", ...new Set(rows.map((r) => r.owner))], saved.owner)}</select></label>
       <label>SP <select id="f-sp">${opts(["", ...new Set(rows.map((r) => r.sp))], saved.sp)}</select></label>
       <label>PROD <select id="f-prod">${opts(["", "PROD", "no"], saved.prod)}</select></label>
+      <label>Borradores <select id="f-drafts">${opts(["", "pending", "assign", "publish"], saved.drafts, draftFilterLabel)}</select></label>
       <button type="button" id="reset-f">Restablecer filtros</button>
     </div>
     <div class="table-wrap page-flow">
@@ -684,6 +725,7 @@ async function renderGrid() {
       owner: document.getElementById("f-owner").value,
       sp: document.getElementById("f-sp").value,
       prod: document.getElementById("f-prod").value,
+      drafts: document.getElementById("f-drafts").value,
       team: document.getElementById("f-team").checked
     };
     localStorage.setItem(FILTER_KEY, JSON.stringify(f));
@@ -694,6 +736,7 @@ async function renderGrid() {
       if (f.owner && r.owner !== f.owner) return false;
       if (f.sp && r.sp !== f.sp) return false;
       if (f.prod && r.prod !== f.prod) return false;
+      if (f.drafts && !matchesDraftFilter(r, f.drafts)) return false;
       return true;
     });
     const keep = new Set(matched.map((r) => r.id));
@@ -703,6 +746,11 @@ async function renderGrid() {
       while (pid && byId.has(pid)) {
         keep.add(pid);
         pid = byId.get(pid).parentId;
+      }
+    }
+    if (f.drafts) {
+      for (const r of rows) {
+        if (r.parentId && keep.has(r.parentId)) keep.add(r.id);
       }
     }
     const filtered = rows.filter((r) => keep.has(r.id));
@@ -723,7 +771,7 @@ async function renderGrid() {
         <td>${r.depth ? "—" : (r.children || "—")}</td>
         <td>${esc(r.sp)}</td>
         <td>${esc(r.release)} / ${esc(r.prod)}</td>
-        <td class="actions">${!r.depth ? cmdCopyButtons(r.azureId, { analyzedAt: r.analyzedAt, preparedAt: r.preparedAt }) : ""}</td>
+        <td class="actions">${!r.depth ? `${draftQueueBadge(r)}${cmdCopyButtons(r.azureId, { analyzedAt: r.analyzedAt, preparedAt: r.preparedAt })}` : ""}</td>
       </tr>`);
     }
     document.getElementById("grid-body").innerHTML = html.join("") || `<tr><td colspan="9"><div class="empty">${rows.length ? "Sin filas. Probá restablecer filtros o desmarcar Solo equipo." : "Vacío. Corré sync y recargá."}</div></td></tr>`;
@@ -744,7 +792,7 @@ async function renderGrid() {
     localStorage.setItem(FILTER_KEY, JSON.stringify(cur));
     renderGrid();
   });
-  ["q", "f-type", "f-state", "f-owner", "f-sp", "f-prod"].forEach((id) => document.getElementById(id).addEventListener("input", draw));
+  ["q", "f-type", "f-state", "f-owner", "f-sp", "f-prod", "f-drafts"].forEach((id) => document.getElementById(id).addEventListener("input", draw));
   document.getElementById("reset-f").addEventListener("click", () => {
     localStorage.removeItem(FILTER_KEY);
     sessionStorage.removeItem("grid-state");
@@ -755,6 +803,33 @@ async function renderGrid() {
 
 function opts(values, selected, labelFn) {
   return values.map((v) => `<option ${v === selected ? "selected" : ""} value="${esc(v)}">${esc(v ? (labelFn ? labelFn(v) : v) : "(todos)")}</option>`).join("");
+}
+
+function draftFilterLabel(value) {
+  if (value === "pending") return "Pendientes de generar";
+  if (value === "assign") return "Falta asignar";
+  if (value === "publish") return "Falta publicar";
+  return value;
+}
+
+function matchesDraftFilter(row, value) {
+  if (value === "assign") return Number(row.draftsNeedAssign) > 0;
+  if (value === "publish") return Number(row.draftsNeedPublish) > 0;
+  if (value === "pending") return Number(row.draftsPending) > 0;
+  return true;
+}
+
+function draftQueueBadge(row) {
+  const assign = Number(row.draftsNeedAssign) || 0;
+  const publish = Number(row.draftsNeedPublish) || 0;
+  const pending = Number(row.draftsPending) || 0;
+  if (!pending) return "";
+  const parts = [];
+  if (assign) parts.push(`${assign} sin asignar`);
+  if (publish) parts.push(`${publish} por publicar`);
+  const review = pending - assign - publish;
+  if (review > 0) parts.push(`${review} por aprobar`);
+  return `<span class="pill st-OTHER draft-queue" title="Subtareas IA pendientes">${esc(parts.join(" · "))}</span>`;
 }
 
 async function renderStory(id) {
@@ -788,7 +863,7 @@ async function renderStory(id) {
     <section id="tab-resumen" class="panel">
       ${briefHtml(pkg, data.packages?.[0])}
       <h2>Azure</h2>
-      ${s.description_html || "<p>Sin descripción.</p>"}
+      ${azureHtml(s.description_html) || "<p>Sin descripción.</p>"}
       <h2>AC en Azure</h2>
       <p>${esc(s.acceptance_criteria || "UNKNOWN")}</p>
       <h2>Nota TL</h2>
@@ -800,13 +875,13 @@ async function renderStory(id) {
       ${data.drafts?.length ? sortDrafts(data.drafts).map((d) => draftHtml(d, data.team, data.defaultOwnerId)).join("") : `<div class="empty">Sin borradores. Ejecutá Prepare en Cursor.</div>`}
       ${publishBarHtml(data.drafts, data.writesEnabled)}
       <h2>Hijos en Azure</h2>
-      ${data.children?.length ? `<ul>${data.children.map((c) => `<li>#${c.azure_id} ${esc(c.title)} · ${esc(c.state_normalized)} · ${esc(c.assigned_to_name || "sin asignar")}${c.description_html ? `<div class="hint">${c.description_html}</div>` : ""}</li>`).join("")}</ul>` : "<p>Sin hijos vinculados en este sync.</p>"}
+      ${data.children?.length ? `<ul>${data.children.map((c) => `<li>#${c.azure_id} ${esc(c.title)} · ${esc(c.state_normalized)} · ${esc(c.assigned_to_name || "sin asignar")}${c.description_html ? `<div class="hint">${azureHtml(c.description_html)}</div>` : ""}</li>`).join("")}</ul>` : "<p>Sin hijos vinculados en este sync.</p>"}
     </section>
     <section id="tab-paquete" class="panel hidden">${packageHtml(pkg, data.packages?.[0], data.results)}</section>
     <section id="tab-evidencia" class="panel hidden">
       ${data.attachments.map((a) => `<p><img class="evidence" alt="${esc(a.file_name)}" src="/attachments/${a.id}"/></p>`).join("")}
       <ul>${data.evidence.map((e) => `<li><strong>${esc(e.classification)}</strong> ${esc(e.summary)} <span class="hint">${esc(e.source)} · ${esc(e.observed_at)}</span></li>`).join("")}</ul>
-      <h3>Comentarios</h3>${data.comments.map((c) => `<article>${c.text_html}<p class="hint">${esc(c.author_name)} ${esc(c.created_at)}</p></article>`).join("") || "<p>Sin comentarios.</p>"}
+      <h3>Comentarios</h3>${data.comments.map((c) => `<article>${azureHtml(c.text_html)}<p class="hint">${esc(c.author_name)} ${esc(c.created_at)}</p></article>`).join("") || "<p>Sin comentarios.</p>"}
     </section>
     <section id="tab-analisis" class="panel hidden">${analysesHtml(data.analyses)}</section>
     <section id="tab-tecnico" class="panel hidden">${techHtml(pkg)}</section>
@@ -835,16 +910,136 @@ async function renderStory(id) {
 
 async function renderSp() {
   const data = await api("/api/sp");
+  const gapIds = new Set((data.gaps || []).map((gap) => gap.azureId));
+  const missing = (data.traces || []).filter((trace) =>
+    gapIds.has(trace.azureId) ||
+    (trace.gap && gapIds.has(trace.gap.azureId)) ||
+    gapIds.has(trace.workContract?.story?.azureId) ||
+    (trace.workContract?.tasks || []).some((task) => gapIds.has(task.azureId))
+  );
   main.innerHTML = `
     <h1>Dependencias SP</h1>
-    <p class="hint">Aging en ${data.agingUnit}, zona ${data.timezone}. Contrato confirmado ≠ disponible en ambiente.</p>
-    ${data.items.length ? `<div class="table-wrap"><table><thead><tr><th>Historia</th><th>SP</th><th>Estado</th><th>Aging</th><th>Equipo</th></tr></thead>
-    <tbody>${data.items.map((i) => `<tr data-id="${i.story?.azure_id || ""}">
-      <td>#${i.story?.azure_id ?? ""} ${esc(i.story?.title || "")}</td>
-      <td>${esc(i.name)}</td><td>${esc(i.lifecycle || i.status)}</td>
-      <td>${i.agingDays} días corridos</td><td>${esc(i.responsible_team || "")}</td>
-    </tr>`).join("")}</tbody></table></div>` : `<div class="empty">No hay dependencias SP en este sprint.</div>`}`;
+    <p class="hint">Solo los ítems de Inicio → Falta definición SQL. Aging en ${esc(data.agingUnit)}, zona ${esc(data.timezone)}. Cadena: captura → pantalla FE → API mostrar/guardar → controller/model → SP. El código es hipótesis hasta confirmar contrato.</p>
+    <div class="toolbar">
+      <button type="button" id="sp-report" class="primary">Informe SP (PDF)</button>
+    </div>
+    <section class="panel sql-gaps">
+      <h2>Falta definición SQL</h2>
+      <p class="hint">Historias o tareas a las que les falta el contrato. Cada fila recorre el front hasta el back y separa SP de lectura y de envío.</p>
+      ${missing.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Ítem</th><th>Capturas</th><th>Pantalla</th><th>Mostrar</th><th>Guardar</th><th>Frontend</th><th>Backend</th><th>Leer</th><th>Mandar</th><th>Pedido</th></tr></thead>
+        <tbody>${missing.map((trace) => spTraceRow(trace)).join("")}</tbody>
+      </table></div>` : `<div class="empty">Ninguna historia analizada está frenada por definición SQL.</div>`}
+    </section>
+    <section class="panel sp-report-preview">
+      <h2>Informe para mandar</h2>
+      <p class="hint">Pedido a SQL: texto de lo que falta, contrato de la historia/tareas con capturas, y SP de lectura/envío. El botón abre la versión imprimible.</p>
+      ${missing.length ? missing.map((trace) => `
+        <article class="mini-card">
+          <h3>#${trace.azureId} ${esc(trace.title)}</h3>
+          <p>${esc(sqlPedido(trace))}</p>
+          ${sqlContractHtml(trace)}
+          <p class="hint">SP para leer: ${esc(spNames(trace.sqlReads || trace.reads))} · SP para mandar: ${esc(spNames(trace.sqlWrites || trace.writes))}</p>
+        </article>`).join("") : `<div class="empty">No hay ítems SP para explicar en este sprint.</div>`}
+    </section>`;
+  document.getElementById("sp-report")?.addEventListener("click", () => {
+    window.open(`/api/sp-report?t=${Date.now()}`, "_blank");
+  });
   main.querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => { if (tr.dataset.id) location.hash = `#/story/${tr.dataset.id}`; }));
+}
+
+function spTraceRow(trace, withPedido = true) {
+  return `<tr data-id="${trace.azureId}">
+    <td class="item"><a href="#/story/${trace.azureId}">#${trace.azureId} ${esc(trace.title)}</a></td>
+    <td class="sp-thumb">${captureThumbs(trace.captures)}</td>
+    <td>${esc(screenCell(trace))}</td>
+    <td>${esc(apiSummary((trace.apis || []).filter((a) => a.usage === "lectura")))}</td>
+    <td>${esc(apiSummary((trace.apis || []).filter((a) => a.usage === "envio")))}</td>
+    <td>${esc(layerSummary(trace.frontend, trace.frontendPages?.length ? trace.frontendPages : trace.filesFe))}</td>
+    <td>${esc(layerSummary(trace.backend, trace.filesBe))}</td>
+    <td>${esc(spNames(trace.reads))}</td>
+    <td>${esc(spNames(trace.writes))}</td>
+    ${withPedido ? `<td>${esc(trace.gap?.copyText || (trace.missingContract ? "Falta contrato confirmado." : "—"))}</td>` : ""}
+  </tr>`;
+}
+
+function layerSummary(items, files) {
+  const tasks = (items || []).map((item) => {
+    const id = item.azureId ? `#${item.azureId} ` : item.source === "draft" ? "(borrador) " : "";
+    return `${id}${item.title}`;
+  });
+  if (files?.length) tasks.push(files.join(", "));
+  return tasks.join(" · ") || "—";
+}
+
+function spNames(refs) {
+  if (!refs?.length) return "—";
+  return refs.map((sp) => sp.name || "SP sin nombre").join(", ");
+}
+
+function sqlPedido(trace) {
+  if (trace.gap?.copyText) return trace.gap.copyText;
+  if (trace.missingContract) return `Para #${trace.azureId} ${trace.title} falta la definición del contrato SP.`;
+  return `Contrato en evidencia para #${trace.azureId} ${trace.title}.`;
+}
+
+function sqlContractHtml(trace) {
+  const story = trace.workContract?.story;
+  const tasks = trace.workContract?.tasks || [];
+  const html = [
+    story ? sqlContractItem(story, tasks.length ? "Historia" : (/task/i.test(story.type) ? "Tarea" : "Historia")) : "",
+    ...tasks.map((task) => sqlContractItem(task, "Subtarea"))
+  ].filter(Boolean).join("");
+  const used = `${story?.descriptionHtml || ""}${tasks.map((t) => t.descriptionHtml || "").join("")}`.toLowerCase();
+  const extras = (trace.captures || []).filter((c) => {
+    if (!c.url?.startsWith("/attachments/")) return false;
+    if (used.includes(c.url.toLowerCase())) return false;
+    const guid = `${c.url} ${c.fileName || ""} ${c.id || ""}`.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    return !(guid && used.includes(guid[0].toLowerCase()));
+  });
+  const caps = extras.length
+    ? `<div class="sp-captures">${extras.map((c) => `<figure><img src="${esc(c.url)}" alt="${esc(c.alt || c.fileName)}" loading="lazy"/><figcaption>${esc(c.inferredScreen || c.fileName)}</figcaption></figure>`).join("")}</div>`
+    : "";
+  return html || caps ? `<div class="sql-contract">${html}${caps}</div>` : "";
+}
+
+function sqlContractItem(item, kind) {
+  const body = item.descriptionHtml?.trim();
+  const ac = item.acceptanceCriteria?.trim();
+  return `<section class="sql-wi">
+    <h4>${esc(kind)} #${item.azureId} ${esc(item.title)}</h4>
+    ${body ? `<div class="sql-wi-body">${body}</div>` : `<p class="hint">Sin descripción en Azure.</p>`}
+    ${ac ? `<p class="hint"><strong>AC:</strong> ${esc(ac)}</p>` : ""}
+  </section>`;
+}
+
+function screenCell(trace) {
+  if (!trace.screen) return "—";
+  return trace.screenSource ? `${trace.screen} (${trace.screenSource})` : trace.screen;
+}
+
+function apiSummary(apis) {
+  if (!apis?.length) return "—";
+  return apis.map((api) => {
+    const sp = api.sps?.length
+      ? ` → ${api.sps.join(", ")}`
+      : api.via === "http"
+        ? " → HTTP middleware/NCSL"
+        : api.via === "ef"
+          ? " → EF"
+          : "";
+    const model = api.models?.[0] ? ` (${api.models[0]})` : "";
+    return `${api.method ? `${api.method} ` : ""}${api.path}${model}${sp}`;
+  }).join(" · ");
+}
+
+function captureThumbs(captures) {
+  if (!captures?.length) return "—";
+  return captures
+    .filter((c) => c.url?.startsWith("/attachments/"))
+    .slice(0, 2)
+    .map((c) => `<img class="sp-cap" src="${esc(c.url)}" alt="${esc(c.fileName)}" title="${esc(c.inferredScreen || c.note)}" loading="lazy"/>`)
+    .join("") || `${captures.length} sin archivo local`;
 }
 
 function initials(name) {
@@ -1028,15 +1223,15 @@ function sourceContextHtml(items) {
     const images = (item.attachments || []).filter((a) => a.image || String(a.contentType || "").startsWith("image/"));
     const other = (item.attachments || []).filter((a) => !images.includes(a));
     const imgTags = images.map((a) => {
-      const src = a.id && !String(a.id).startsWith("rel-") ? `/attachments/${a.id}` : (a.sourceUrl || "");
+      const src = a.id && !String(a.id).startsWith("rel-") ? `/attachments/${a.id}` : azureHtml(a.sourceUrl || "");
       if (!src) return `<p class="hint">Imagen: ${esc(a.fileName)}</p>`;
       return `<p><img class="evidence" alt="${esc(a.fileName)}" src="${esc(src)}"/></p>`;
     }).join("");
     return `<div class="source-ctx">
       <p class="hint">#${item.azureId} ${esc(item.title)} (${esc(item.type)})</p>
-      ${item.descriptionHtml || (item.descriptionText ? `<p>${esc(item.descriptionText)}</p>` : "")}
+      ${item.descriptionHtml ? azureHtml(item.descriptionHtml) : (item.descriptionText ? `<p>${esc(item.descriptionText)}</p>` : "")}
       ${item.acceptanceCriteria ? `<p><strong>AC.</strong> ${esc(item.acceptanceCriteria)}</p>` : ""}
-      ${(item.comments || []).map((c) => `<article>${c.html || esc(c.text || "")}<p class="hint">${esc(c.author || "")} ${esc(c.at || "")}</p></article>`).join("")}
+      ${(item.comments || []).map((c) => `<article>${c.html ? azureHtml(c.html) : esc(c.text || "")}<p class="hint">${esc(c.author || "")} ${esc(c.at || "")}</p></article>`).join("")}
       ${imgTags}
       ${other.map((a) => `<p class="hint">Adjunto: ${esc(a.fileName)}</p>`).join("")}
     </div>`;
@@ -1166,6 +1361,13 @@ function analysesHtml(analyses) {
       ${rd.status ? `<p>Readiness análisis: ${esc(rd.status)}</p>` : ""}
     </article>`;
   }).join("");
+}
+
+function azureHtml(value) {
+  return String(value ?? "").replace(
+    /https:\/\/dev\.azure\.com\/[^"'>\s]+\/_apis\/wit\/attachments\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:\?[^"'>\s]*)?/gi,
+    (_match, guid) => `/attachments/azure/${String(guid).toLowerCase()}`
+  );
 }
 
 function esc(s) {

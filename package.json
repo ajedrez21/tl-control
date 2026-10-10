@@ -16,7 +16,7 @@
     "test": "tsx --test --test-reporter=spec tests/acceptance.test.ts",
     "demo": "tsx src/cli/index.ts demo",
     "doctor": "tsx src/cli/index.ts doctor",
-    "dashboard": "tsx src/cli/index.ts dashboard --demo"
+    "dashboard": "tsx src/cli/index.ts dashboard"
   },
   "keywords": [
     "tech-lead",

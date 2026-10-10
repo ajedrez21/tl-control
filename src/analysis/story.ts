@@ -13,6 +13,7 @@ import { validateTeamAi } from "../adapters/kit/validate.ts";
 import { resolveDataDir } from "../config/load.ts";
 import { htmlToText, sanitizeHtml } from "../domain/sanitize.ts";
 import { syncFunctionalQuestions } from "./functional-questions.ts";
+import { listSpDossier } from "../metrics/sp-dossier.ts";
 
 export type ScopeMode = "story-and-children" | "story-only" | "task-only";
 
@@ -166,6 +167,9 @@ export function analyzeSp(db: Db, config: AppConfig, rawId: string): Record<stri
   const deps = all<Dep>(db, "SELECT * FROM dependencies WHERE work_item_id = ? AND kind LIKE 'SP%'", id);
   const contracts = all<Ctr>(db, "SELECT * FROM contracts WHERE work_item_id = ? AND kind = 'SP'", id);
   const intervals = all(db, "SELECT * FROM dependency_intervals WHERE dependency_id IN (SELECT id FROM dependencies WHERE work_item_id = ?)", id);
+  const wi = get<{ azure_id: number }>(db, "SELECT azure_id FROM work_items WHERE id = ?", id);
+  const dossier = listSpDossier(db, config);
+  const trace = dossier.traces.find((item) => item.workItemId === id || item.azureId === wi?.azure_id) ?? null;
   const result = {
     workItemId: id,
     generatedAt: nowIso(),
@@ -177,6 +181,19 @@ export function analyzeSp(db: Db, config: AppConfig, rawId: string): Record<stri
     })),
     dependencies: deps,
     intervals,
+    trace,
+    chain: trace
+      ? {
+          screen: trace.screen,
+          captures: trace.captures,
+          frontendPages: trace.frontendPages,
+          loadApis: trace.apis.filter((api) => api.usage === "lectura"),
+          saveApis: trace.apis.filter((api) => api.usage === "envio"),
+          reads: trace.reads,
+          writes: trace.writes,
+          explanation: trace.explanation
+        }
+      : null,
     agingUnit: config.agingUnit,
     timezone: config.timezone
   };

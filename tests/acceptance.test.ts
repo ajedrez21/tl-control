@@ -7,6 +7,10 @@ import { canonicalize, contextHashFor, withContextHash } from "../src/domain/can
 import { workItemKey, parseWorkItemKey } from "../src/domain/ids.ts";
 import { evaluateReadiness, productionConfirmed } from "../src/domain/readiness.ts";
 import { sanitizeHtml } from "../src/domain/sanitize.ts";
+import {
+  isSafeAzureAttachmentUrl,
+  rewriteAzureAttachmentUrls
+} from "../src/domain/azure-images.ts";
 import { calendarDaysBetween } from "../src/domain/time.ts";
 import { openDb, all, get, run } from "../src/storage/db.ts";
 import { backupDb, restoreDb } from "../src/storage/backup.ts";
@@ -26,7 +30,10 @@ import { projectRoot } from "../src/config/load.ts";
 import { assertInsideDir } from "../src/server/safe-path.ts";
 import { createAutoSync } from "../src/server/auto-sync.ts";
 import { idsHiddenByBlock } from "../src/metrics/blocked.ts";
-import { listSqlGaps, sqlGapCopy } from "../src/metrics/sql-gaps.ts";
+import { confirmSpContract, dismissSqlGap, listSqlGaps, sqlGapCopy } from "../src/metrics/sql-gaps.ts";
+import { extractSpNames, listSpDossier, spsForSqlRequest } from "../src/metrics/sp-dossier.ts";
+import { expandTemplate, extractProductSpNames, inferScreenFromTitle, normalizeApiPath } from "../src/metrics/sp-code-trace.ts";
+import { renderSpReport } from "../src/report/sp.ts";
 import { answerFunctionalQuestion, listFunctionalQuestions, publishFunctionalQuestions } from "../src/analysis/functional-questions.ts";
 import { findSandboxMentions, renderDailyReport, verdict } from "../src/report/daily.ts";
 import { loadMemberBoard, saveMemberBoard, inferBoardColumn, resolveBoardColumn, memberShortName } from "../src/domain/board.ts";
@@ -455,6 +462,30 @@ test("TL-AC16 sanitiza HTML y rechaza path traversal", () => {
   assert.throws(() => assertInsideDir(root, join(projectRoot(), "package.json")));
 });
 
+test("imágenes Azure de descripción se reescriben a proxy local", () => {
+  const guid = "d3c51602-61e5-4c32-b0f5-302b33112b9b";
+  const html = sanitizeHtml(
+    `<p>x</p><img src="https://dev.azure.com/ORG/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/${guid}?fileName=Captura.png" alt="c">`
+  );
+  const out = rewriteAzureAttachmentUrls(html);
+  assert.match(out, new RegExp(`src="/attachments/azure/${guid}"`));
+  assert.equal(out.includes("dev.azure.com"), false);
+  const keep = rewriteAzureAttachmentUrls(`<img src="https://example.com/captura.png" alt="c">`);
+  assert.match(keep, /https:\/\/example.com\/captura.png/);
+  assert.equal(
+    isSafeAzureAttachmentUrl(
+      `https://dev.azure.com/ORG/proj/_apis/wit/attachments/${guid}`,
+      guid,
+      "ORG"
+    ),
+    true
+  );
+  assert.equal(
+    isSafeAzureAttachmentUrl(`https://evil.example/_apis/wit/attachments/${guid}`, guid, "ORG"),
+    false
+  );
+});
+
 test("TL-AC18 no hay secretos en config de ejemplo", () => {
   const example = readFileSync(join(projectRoot(), "config/tl-control.example.json"), "utf8");
   assert.doesNotMatch(example, /AZURE_DEVOPS_|api[_-]?key\s*[:=]|password\s*[:=]|Bearer /i);
@@ -669,6 +700,19 @@ test("analyze deja un faltante SQL cuando el texto pide un SP y no hay contrato"
   assert.match(gaps[0]?.copyText ?? "", /SP nuevo/);
   const untouched = listSqlGaps(db, config.azure.iterationPath).filter((gap) => gap.azureId === 4101);
   assert.equal(untouched.length, 0);
+  assert.ok(gaps[0]?.workItemId);
+  assert.equal(dismissSqlGap(db, gaps[0]!.workItemId), true);
+  analyzeStory(db, config, "4108");
+  assert.equal(listSqlGaps(db, config.azure.iterationPath).some((gap) => gap.azureId === 4108), false);
+  db.close();
+});
+
+test("confirmar contrato SP saca el faltante SQL", () => {
+  const { db, config } = seeded();
+  const open = listSqlGaps(db, config.azure.iterationPath).find((gap) => gap.azureId === 4103);
+  assert.ok(open?.workItemId);
+  assert.equal(confirmSpContract(db, open.workItemId, { name: "dbo.usp_Movimientos_Listar", notes: "Contrato del TL." }), true);
+  assert.equal(listSqlGaps(db, config.azure.iterationPath).some((gap) => gap.azureId === 4103), false);
   db.close();
 });
 
@@ -845,6 +889,99 @@ test("tablero kanban coloca a cada dev y persiste la nota de arranque", () => {
   assert.equal(luciaRow?.note, "");
   assert.ok(martinAfter?.assigned.some((task) => task.azureId === 5102));
   db.close();
+});
+
+test("inferencia de pantalla desde título NWEB", () => {
+  assert.equal(inferScreenFromTitle("NWEB - Production Log - Logs"), "Production Log");
+  assert.equal(inferScreenFromTitle("Nuevo submenu de Conciliation"), "Conciliation");
+});
+
+test("traza SP normaliza API FE y nombres de producto", () => {
+  assert.equal(normalizeApiPath("simba/materiales_log/${id}"), "/api/simba/materiales_log/*");
+  assert.equal(normalizeApiPath("/programChange/update"), "/api/programChange/update");
+  assert.deepEqual(expandTemplate("/programChange/${updateMode ? \"update\" : \"send\"}"), [
+    "/programChange/update",
+    "/programChange/send"
+  ]);
+  assert.ok(extractProductSpNames('currentStoredProc = "NWEB_materiales_log";').includes("NWEB_materiales_log"));
+  assert.ok(extractProductSpNames("ALTER PROCEDURE [dbo].[programacion_modi_horario]").includes("programacion_modi_horario"));
+});
+
+test("dossier SP recorre front, back y separa lectura de envío", () => {
+  const { db, config } = seeded();
+  const dossier = listSpDossier(db, config);
+  const mov = dossier.traces.find((trace) => trace.azureId === 4103);
+  assert.ok(mov);
+  assert.equal(mov?.screen, "Cuentas / Movimientos");
+  assert.ok(mov?.backend.some((item) => item.azureId === 5103));
+  assert.ok(mov?.reads.some((sp) => sp.name === "dbo.usp_Movimientos_Listar"));
+  assert.equal(mov?.writes.length, 0);
+  assert.equal(mov?.missingContract, true);
+  assert.match(mov?.explanation ?? "", /no se inventa la firma/);
+  const csv = dossier.traces.find((trace) => trace.azureId === 4104);
+  assert.equal(csv, undefined);
+  assert.deepEqual(extractSpNames("Usar SP usp_Movimientos_Listar y no inventar firma"), ["dbo.usp_Movimientos_Listar"]);
+  db.close();
+});
+
+test("informe SP explica cada ítem para mandar como PDF", () => {
+  const { db, config } = seeded();
+  const html = renderSpReport(db, config);
+  assert.match(html, /Guardar como PDF/);
+  assert.match(html, /#4103/);
+  assert.match(html, /usp_Movimientos_Listar/);
+  assert.match(html, /SP para leer/);
+  assert.match(html, /SP para mandar/);
+  assert.match(html, /necesitamos la definición de un SP nuevo|falta la definición del contrato SP/);
+  assert.match(html, /Listar movimientos paginados usando SP usp_Movimientos_Listar/);
+  assert.match(html, /BE: consumir usp_Movimientos_Listar/);
+  assert.match(html, /Historia/);
+  assert.match(html, /Subtarea/);
+  assert.match(html, /pedido\(s\) de definición SQL/);
+  assert.doesNotMatch(html, /SP con contrato en la evidencia/);
+  assert.doesNotMatch(html, /Dependencias del sprint/);
+  assert.doesNotMatch(html, /API para mostrar/);
+  assert.doesNotMatch(html, /API al guardar/);
+  assert.doesNotMatch(html, /Pantalla FE/);
+  assert.doesNotMatch(html, /@cuentaId/);
+  db.close();
+});
+
+test("pedido SQL trae relacionados en alta nueva y todos en corrección", () => {
+  const related = { name: "nweb_carga_motivos_combo", usage: "lectura", status: "UNKNOWN", lifecycle: null, source: "repo", confirmed: false };
+  const extra = { name: "nweb_otra_consulta", usage: "lectura", status: "UNKNOWN", lifecycle: null, source: "text", confirmed: false };
+  const unclear = { name: "nweb_log", usage: "desconocido", status: "UNKNOWN", lifecycle: null, source: "repo", confirmed: false };
+  const write = { name: "nweb_actua_emi_spots_alta", usage: "envio", status: "UNKNOWN", lifecycle: null, source: "repo", confirmed: false };
+  const gapNew = {
+    workItemId: "x",
+    azureId: 1,
+    title: "Nuevo",
+    type: "User Story",
+    screen: "Conciliation",
+    spName: null,
+    change: "NEW",
+    usage: null,
+    missing: [],
+    copyText: "pedido"
+  };
+  const nuevo = spsForSqlRequest({
+    gap: gapNew,
+    sps: [related, extra, unclear, write],
+    reads: [related],
+    writes: [write],
+    unknown: [unclear]
+  });
+  assert.deepEqual(nuevo.reads.map((sp) => sp.name), ["nweb_carga_motivos_combo"]);
+  assert.deepEqual(nuevo.writes.map((sp) => sp.name), ["nweb_actua_emi_spots_alta"]);
+  const update = spsForSqlRequest({
+    gap: { ...gapNew, change: "UPDATE", spName: "nweb_carga_motivos_combo" },
+    sps: [related, extra, unclear, write],
+    reads: [related],
+    writes: [write],
+    unknown: [unclear]
+  });
+  assert.deepEqual(update.reads.map((sp) => sp.name), ["nweb_carga_motivos_combo", "nweb_log", "nweb_otra_consulta"]);
+  assert.deepEqual(update.writes.map((sp) => sp.name), ["nweb_actua_emi_spots_alta"]);
 });
 
 void existsSync;

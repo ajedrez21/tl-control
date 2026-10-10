@@ -1,9 +1,11 @@
 import type { Db } from "../storage/db.ts";
-import { all } from "../storage/db.ts";
+import { all, get, run } from "../storage/db.ts";
+import { nowIso } from "../domain/time.ts";
 
 export type SqlChange = "NEW" | "ADD" | "UPDATE";
 
 export interface SqlGap {
+  workItemId: string;
   azureId: number;
   title: string;
   type: string;
@@ -85,6 +87,8 @@ export function listSqlGaps(db: Db, iterationId: string): SqlGap[] {
     });
   }
 
+  const dismissedItems = dismissedWorkItems(db, iterationId, drafts);
+
   const seenAnalysis = new Set<string>();
   for (const row of all<{ work_item_id: string; payload_json: string }>(
     db,
@@ -97,6 +101,7 @@ export function listSqlGaps(db: Db, iterationId: string): SqlGap[] {
   )) {
     if (seenAnalysis.has(row.work_item_id)) continue;
     seenAnalysis.add(row.work_item_id);
+    if (dismissedItems.has(row.work_item_id)) continue;
     const payload = parseObject(row.payload_json);
     if (!payload) continue;
     for (const contract of asArray(payload.contracts)) {
@@ -148,6 +153,7 @@ function toGap(draft: GapDraft, item: WorkRef): SqlGap {
   const screen = item.screen || item.module || null;
   const spName = draft.spName?.trim() || null;
   return {
+    workItemId: item.id,
     azureId: item.azure_id,
     title: item.title,
     type: item.type,
@@ -196,6 +202,125 @@ function missingFields(definition: Record<string, unknown> | null): string[] {
 function notesOf(definition: Record<string, unknown> | null): string {
   if (!definition) return "";
   return `${definition.compatibilityNotes ?? ""} ${definition.usage ?? ""} ${definition.change ?? ""}`.toLowerCase();
+}
+
+export function dismissSqlGap(db: Db, workItemId: string): boolean {
+  const item = get<{ id: string }>(db, "SELECT id FROM work_items WHERE id = ?", workItemId);
+  if (!item) return false;
+  const contracts = all<{ id: string; status: string }>(
+    db,
+    "SELECT id, status FROM contracts WHERE work_item_id = ? AND kind = 'SP'",
+    workItemId
+  );
+  const deps = all<{ id: string; status: string; lifecycle: string | null }>(
+    db,
+    "SELECT id, status, lifecycle FROM dependencies WHERE work_item_id = ? AND kind = 'SP_CONTRACT'",
+    workItemId
+  );
+  const note = JSON.stringify({
+    change: "NEW",
+    compatibilityNotes: "El TL marcó que no hace falta contrato SP."
+  });
+  let changed = false;
+  for (const contract of contracts) {
+    if (isClosed(contract.status, null)) continue;
+    run(db, "UPDATE contracts SET status = 'NOT_APPLICABLE', definition_json = ? WHERE id = ?", note, contract.id);
+    changed = true;
+  }
+  for (const dep of deps) {
+    if (isClosed(dep.status, dep.lifecycle)) continue;
+    run(
+      db,
+      "UPDATE dependencies SET status = 'NOT_APPLICABLE', lifecycle = 'NOT_APPLICABLE', unblocked_at = ? WHERE id = ?",
+      nowIso(),
+      dep.id
+    );
+    changed = true;
+  }
+  if (!contracts.length) {
+    run(
+      db,
+      "INSERT INTO contracts(id, work_item_id, kind, name, version, status, definition_json, source_evidence_ids, environment) VALUES (?, ?, 'SP', NULL, 'v1', 'NOT_APPLICABLE', ?, '[]', NULL)",
+      `ctr-sp-na-${workItemId.replaceAll("/", "-")}`,
+      workItemId,
+      note
+    );
+    changed = true;
+  }
+  return changed || Boolean(item);
+}
+
+export function confirmSpContract(
+  db: Db,
+  workItemId: string,
+  input: { name?: string; notes?: string }
+): boolean {
+  const item = get<{ id: string }>(db, "SELECT id FROM work_items WHERE id = ?", workItemId);
+  if (!item) return false;
+  const name = input.name?.trim() || null;
+  const definition = JSON.stringify({
+    change: name ? "UPDATE" : "NEW",
+    compatibilityNotes: input.notes?.trim() || "Contrato cargado por el TL desde la evidencia.",
+    inputs: [],
+    outputs: [],
+    errors: []
+  });
+  const existing = get<{ id: string }>(
+    db,
+    "SELECT id FROM contracts WHERE work_item_id = ? AND kind = 'SP' ORDER BY id LIMIT 1",
+    workItemId
+  );
+  if (existing) {
+    run(
+      db,
+      "UPDATE contracts SET status = 'CONFIRMED', name = COALESCE(?, name), definition_json = ? WHERE id = ?",
+      name,
+      definition,
+      existing.id
+    );
+  } else {
+    run(
+      db,
+      "INSERT INTO contracts(id, work_item_id, kind, name, version, status, definition_json, source_evidence_ids, environment) VALUES (?, ?, 'SP', ?, 'v1', 'CONFIRMED', ?, '[]', NULL)",
+      `ctr-sp-${workItemId.replaceAll("/", "-")}`,
+      workItemId,
+      name,
+      definition
+    );
+  }
+  run(
+    db,
+    "UPDATE dependencies SET status = 'SATISFIED', lifecycle = 'CONTRACT_CONFIRMED', unblocked_at = COALESCE(unblocked_at, ?) WHERE work_item_id = ? AND kind = 'SP_CONTRACT'",
+    nowIso(),
+    workItemId
+  );
+  return true;
+}
+
+function dismissedWorkItems(db: Db, iterationId: string, open: Map<string, GapDraft>): Set<string> {
+  const openItems = new Set([...open.values()].map((draft) => draft.workItemId));
+  const out = new Set<string>();
+  for (const row of all<{ work_item_id: string; status: string }>(
+    db,
+    `SELECT c.work_item_id, c.status
+     FROM contracts c
+     JOIN work_items w ON w.id = c.work_item_id
+     WHERE w.iteration_id = ? AND c.kind = 'SP'`,
+    iterationId
+  )) {
+    if (isClosed(row.status, null) && !openItems.has(row.work_item_id)) out.add(row.work_item_id);
+  }
+  for (const row of all<{ work_item_id: string; status: string; lifecycle: string | null }>(
+    db,
+    `SELECT d.work_item_id, d.status, d.lifecycle
+     FROM dependencies d
+     JOIN work_items w ON w.id = d.work_item_id
+     WHERE w.iteration_id = ? AND d.kind = 'SP_CONTRACT'`,
+    iterationId
+  )) {
+    if (isClosed(row.status, row.lifecycle) && !openItems.has(row.work_item_id)) out.add(row.work_item_id);
+  }
+  return out;
 }
 
 function isClosed(status: string, lifecycle: string | null): boolean {

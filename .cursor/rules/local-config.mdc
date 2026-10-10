@@ -1,0 +1,29 @@
+---
+description: No tocar config local ni localPath; avisar si falta.
+alwaysApply: true
+---
+
+# Config local (no tocar)
+
+`config/tl-control.json` es del usuario. **No lo edites** salvo que lo pida explícitamente.
+
+## Prohibido
+
+- Cambiar `repositories[].localPath` o `baseRef`.
+- Sobrescribir org, proyecto, iteration, team, environments, writes o paths.
+- Restaurar el archivo con `demoConfig()` / `writeLocalConfig`.
+- Correr `tl-control demo` si eso pisa el JSON local.
+
+Si hace falta un dataset demo, usá DB temporal en tests. No toques el config de NCSLite.
+
+## Si falta algo, avisar siempre
+
+Antes de analizar código FE/BE o SP, leé `localPath` y avisá al usuario si:
+
+- `localPath` está vacío.
+- La ruta no existe o el repo no es accesible.
+- Falta frontend o backend.
+
+No inventes rutas. No completes `localPath` vos. Pedile que lo cargue.
+
+Ejemplo: «Falta `repositories.frontend.localPath`. Sin eso no puedo rastrear APIs en el front.»

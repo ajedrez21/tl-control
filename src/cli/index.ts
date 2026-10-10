@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { loadConfig, ensureLocalConfig, exampleConfigPath, dbPath, resolveDataDir, writeLocalConfig, loadLocalEnv, azurePat } from "../config/load.ts";
-import { all, openDb, getMeta } from "../storage/db.ts";
+import { all, get, openDb, getMeta } from "../storage/db.ts";
 import { backupDb, restoreDb, audit } from "../storage/backup.ts";
 import { demoConfig, seedDemo } from "../demo/seed.ts";
 import { runDoctor } from "./doctor.ts";
@@ -13,6 +13,7 @@ import { analyzeStory, analyzeSp, prepareStory } from "../analysis/story.ts";
 import { computeSprintMetrics } from "../metrics/sprint.ts";
 import { refreshAlerts } from "../metrics/alerts.ts";
 import { listReleases } from "../metrics/releases.ts";
+import { confirmSpContract, dismissSqlGap } from "../metrics/sql-gaps.ts";
 import { startDashboardServer } from "../server/http.ts";
 import { importWorkResult } from "../adapters/kit/import.ts";
 import { importSecurityReport } from "../adapters/security/import.ts";
@@ -113,7 +114,28 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     case "analyze-sp": {
       const config = loadConfig();
       const db = openDb(dbPath(config));
-      print(analyzeSp(db, config, String(rest[0] ?? flags.id)));
+      const id = String(rest[0] ?? flags.id);
+      if (flags["not-needed"] || flags.dismiss) {
+        const resolved = get<{ id: string }>(db, "SELECT id FROM work_items WHERE azure_id = ? OR id = ?", Number(id) || -1, id)
+          ?? get<{ id: string }>(db, "SELECT id FROM work_items WHERE id LIKE ?", `%/${id}`);
+        print({ ok: Boolean(resolved && dismissSqlGap(db, resolved.id)), action: "not-needed", id });
+        if (resolved) print(analyzeSp(db, config, id));
+        db.close();
+        return;
+      }
+      if (flags.confirm) {
+        const resolved = get<{ id: string }>(db, "SELECT id FROM work_items WHERE azure_id = ? OR id = ?", Number(id) || -1, id)
+          ?? get<{ id: string }>(db, "SELECT id FROM work_items WHERE id LIKE ?", `%/${id}`);
+        print({
+          ok: Boolean(resolved && confirmSpContract(db, resolved.id, { name: flags.name ? String(flags.name) : undefined, notes: flags.note ? String(flags.note) : undefined })),
+          action: "confirm",
+          id
+        });
+        if (resolved) print(analyzeSp(db, config, id));
+        db.close();
+        return;
+      }
+      print(analyzeSp(db, config, id));
       db.close();
       return;
     }
@@ -228,7 +250,7 @@ function helpText(): string {
   demo                          Dataset ficticio identificado
   sync --iteration <path>       Ingesta Azure (requiere PAT)
   analyze-story <id>
-  analyze-sp <id>
+  analyze-sp <id> [--not-needed] [--confirm --name SP --note texto]
   prepare-story <id> [--assign id] [--preview]
   publish <id> [--rev N] [--confirm]
   daily-control

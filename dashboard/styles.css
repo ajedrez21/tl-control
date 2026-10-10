@@ -97,9 +97,29 @@ h2.panel-title, .panel > h2 { font-size: 1rem; margin: 0 0 10px; padding-bottom:
 .chart-row { margin-top: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
 .attention { margin-top: 16px; }
 .sql-gaps, .func-questions { margin: 0 0 16px; }
+.sp-report-preview { margin-top: 16px; }
+.sp-report-preview .mini-card { margin: 12px 0; }
+.sp-report-preview .mini-card h3 { font-size: 1.35rem; color: var(--accent); }
+.sql-contract { margin: 8px 0; }
+.sql-wi { margin: 10px 0; }
+.sql-wi h4 { margin: 0 0 6px; font-size: .92rem; }
+.sql-wi-body { font-size: .92rem; }
+.sql-wi-body img { max-width: 280px; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.sp-captures { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.sp-captures figure { margin: 0; max-width: 220px; }
+.sp-captures img, img.sp-cap {
+  max-width: 120px; max-height: 72px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--chip);
+}
+.sp-captures figcaption { font-size: .78rem; color: var(--muted); margin-top: 4px; }
 .func-questions ul { margin: 8px 0 0; padding-left: 18px; }
 .func-questions li { margin: 6px 0; }
 .func-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.sql-actions {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  white-space: nowrap; width: 1%;
+}
+.sql-actions .cmd-copy { width: 36px; height: 36px; }
 .sql-copy { display: flex; gap: 10px; align-items: flex-start; min-width: 280px; }
 .sql-copy p { margin: 0; color: var(--muted); font-size: .88rem; }
 .sql-copy .cmd-copy, .func-copy .cmd-copy { width: 48px; height: 48px; flex: none; }
@@ -214,7 +234,8 @@ tr.section td {
 }
 label.check { display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
 td.actions { white-space: nowrap; width: 1%; }
-.cmd-actions { display: inline-flex; gap: 6px; align-items: center; }
+td.actions .draft-queue { margin-right: 8px; vertical-align: middle; }
+.cmd-actions { display: inline-flex; gap: 6px; align-items: center; vertical-align: middle; }
 .cmd-toolbar { margin: 8px 0 12px; }
 .cmd-copy {
   width: 32px; height: 32px; padding: 0; border-radius: 8px;
@@ -229,6 +250,12 @@ td.actions { white-space: nowrap; width: 1%; }
   background: color-mix(in srgb, var(--accent) 10%, var(--card));
 }
 .cmd-copy.analyze:hover { border-color: var(--accent); }
+.cmd-copy.analyze-sp {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 10%, var(--card));
+}
+.cmd-copy.analyze-sp:hover { border-color: var(--danger); }
 .cmd-copy.prepare {
   color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
   background: color-mix(in srgb, var(--ok) 10%, var(--card));
@@ -295,6 +322,13 @@ pre {
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .85rem;
 }
 img.evidence { max-width: min(100%, 480px); border-radius: 8px; }
+.panel img, .source-ctx img, .hint img, article img {
+  max-width: min(100%, 720px);
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 8px 0;
+}
 .chart { width: 100%; }
 .chart-bars { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .donut { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }

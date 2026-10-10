@@ -4,7 +4,7 @@ import { workItemKey } from "../../domain/ids.ts";
 import { resolveAssignee, upsertMembers } from "../../domain/members.ts";
 import { normalizeState } from "../../domain/states.ts";
 import { nowIso } from "../../domain/time.ts";
-import { emptyCoverage, withRetry, type CoverageMap, type HttpClient } from "../http.ts";
+import { emptyCoverage, withRetry, withRetryBytes, type CoverageMap, type HttpClient } from "../http.ts";
 import type { Db } from "../../storage/db.ts";
 import { withTransaction } from "../../storage/db.ts";
 import { markDemo, purgeDemoDataset } from "../../storage/backup.ts";
@@ -131,11 +131,25 @@ export class AzureDevOpsClient {
     return { id: json.id, createdDate: json.createdDate || new Date().toISOString() };
   }
 
-  async downloadAttachment(url: string): Promise<{ bytes: Buffer; status: CoverageMap["attachments"] }> {
-    const res = await withRetry(this.http, { method: "GET", url, headers: authHeader(this.auth.pat) });
-    if (res.status === 401 || res.status === 403) return { bytes: Buffer.alloc(0), status: "UNAUTHORIZED" };
-    if (res.status >= 400) return { bytes: Buffer.alloc(0), status: "NOT_AVAILABLE" };
-    return { bytes: Buffer.from(res.body, "binary"), status: "OK" };
+  async downloadAttachment(
+    url: string
+  ): Promise<{ bytes: Buffer; status: CoverageMap["attachments"]; contentType: string | null }> {
+    const res = await withRetryBytes(this.http, {
+      method: "GET",
+      url,
+      headers: { ...authHeader(this.auth.pat), Accept: "application/octet-stream" }
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { bytes: Buffer.alloc(0), status: "UNAUTHORIZED", contentType: null };
+    }
+    if (res.status >= 400 || res.body.length === 0) {
+      return { bytes: Buffer.alloc(0), status: "NOT_AVAILABLE", contentType: null };
+    }
+    const contentType = res.headers["content-type"]?.split(";")[0]?.trim() || null;
+    if (contentType && /html|json|xml/i.test(contentType)) {
+      return { bytes: Buffer.alloc(0), status: "NOT_AVAILABLE", contentType };
+    }
+    return { bytes: res.body, status: "OK", contentType };
   }
 
   async findIdByTag(tag: string): Promise<number | null> {

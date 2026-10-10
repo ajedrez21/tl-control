@@ -1,0 +1,361 @@
+{
+  "attachments": [
+    {
+      "file_name": "6573-image.png",
+      "stored_path": "C:\\Maxi\\Repos Propios\\tl-control\\data\\attachments\\6573-image.png",
+      "azure_id": 6573,
+      "title": "NWEB - Production Log - Logs"
+    }
+  ],
+  "traces": [
+    {
+      "azureId": 6343,
+      "title": "Nuevo submenu de Conciliation",
+      "screen": "Conciliation",
+      "screenInferred": "Conciliation",
+      "screenSource": "título de la historia",
+      "captures": [
+        {
+          "azureId": 6345,
+          "fileName": "Captura de pantalla 2026-08-06 a las 15.06.35.png",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/d3c51602-61e5-4c32-b0f5-302b33112b9b?fileName=Captura%20de%20pantalla%202026-08-06%20a%20las%2015.06.35.png",
+          "inferredScreen": null
+        }
+      ],
+      "frontendPages": [
+        "src/components/mediatracker/pages/simba/Conciliation/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Logs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js"
+      ],
+      "apis": [
+        "GET /api/combos/canal/* → NWEB_canal_combo [lectura] CombosController.GetCanalesComboArtis",
+        "GET /api/simba/carga_motivos_combo → nweb_carga_motivos_combo [lectura] SimbaController.GetCargaMotivosCombo",
+        "GET /api/simba/descarte_motivos_combo → nweb_descarte_motivos_combo [lectura] SimbaController.GetDescarteMotivosCombo",
+        "? /api/simba/actua_esta_tanda → nweb_actua_emi_esta_artis_modi [desconocido] SimbaController.ActuaEstaTanda",
+        "? /api/simba/actualiza_artis_emi_spots → nweb_actualiza_artis_emi_spots [desconocido] SimbaController.GetActualizaArtisEmiSpots",
+        "? /api/simba/actualiza_emisiones_artis → nweb_actualiza_emisiones_artis [desconocido] SimbaController.GetActualizaEmisionesArtis",
+        "? /api/simba/carga_atras_bandeja → nweb_actua_carga_atras_bandeja [desconocido] SimbaController.GetCargaAtrasBandeja",
+        "? /api/simba/conciliacion_logs/* → nweb_log [desconocido] SimbaController.GetConciliacionLogs",
+        "? /api/simba/emi_spots_alta → nweb_actua_emi_spots_alta [desconocido] SimbaController.EmiSpotsAlta",
+        "? /api/simba/recon_modi → nweb_actua_emi_spots_recon_modi [desconocido] SimbaController.ReconModi",
+        "? /api/simba/spots_mover_progra → nweb_actua_emi_spots_mueve [desconocido] SimbaController.SpotsMoverProgra"
+      ],
+      "reads": [
+        null,
+        "NWEB_canal_combo",
+        "nweb_carga_motivos_combo",
+        "nweb_descarte_motivos_combo"
+      ],
+      "writes": [
+        "nweb_actua_emi_spots_alta"
+      ],
+      "unknown": [
+        "nweb_actua_emi_esta_artis_modi",
+        "nweb_actualiza_artis_emi_spots",
+        "nweb_actualiza_emisiones_artis",
+        "nweb_actua_carga_atras_bandeja",
+        "nweb_log",
+        "nweb_actua_emi_spots_recon_modi",
+        "nweb_actua_emi_spots_mueve"
+      ],
+      "explanation": "#6343 Nuevo submenu de Conciliation. Pantalla: Conciliation (desde título de la historia). Capturas: 1 imagen(es) en la historia/subtareas. Pantalla FE candidata: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js. API para mostrar: GET /api/combos/canal/* · CombosController.GetCanalesComboArtis · model CombosController → SP NWEB_canal_combo; GET /api/simba/carga_motivos_combo · SimbaController.GetCargaMotivosCombo · model SimbaController → SP nweb_carga_motivos_combo; GET /api/simba/descarte_motivos_combo · SimbaController.GetDescarteMotivosCombo · model SimbaController → SP nweb_descarte_motivos_combo. Otras APIs: /api/simba/actua_esta_tanda · SimbaController.ActuaEstaTanda · model SimbaController → SP nweb_actua_emi_esta_artis_modi; /api/simba/actualiza_artis_emi_spots · SimbaController.GetActualizaArtisEmiSpots · model SimbaController → SP nweb_actualiza_artis_emi_spots; /api/simba/actualiza_emisiones_artis · SimbaController.GetActualizaEmisionesArtis · model SimbaController → SP nweb_actualiza_emisiones_artis; /api/simba/carga_atras_bandeja · SimbaController.GetCargaAtrasBandeja · model SimbaController → SP nweb_actua_carga_atras_bandeja; /api/simba/conciliacion_logs/* · SimbaController.GetConciliacionLogs · model SimbaController → SP nweb_log; /api/simba/emi_spots_alta · SimbaController.EmiSpotsAlta · model SimbaController → SP nweb_actua_emi_spots_alta; /api/simba/recon_modi · SimbaController.ReconModi · model SimbaController → SP nweb_actua_emi_spots_recon_modi; /api/simba/spots_mover_progra · SimbaController.SpotsMoverProgra · model SimbaController → SP nweb_actua_emi_spots_mueve. Frontend: sin subtarea. Archivos: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationSearch.js, src/components/mediatracker/pages/simba/Conciliation/InformationForm.js. Backend: sin subtarea. Archivos: Controllers/CombosController.cs, Models/Combo.cs, Models/Repository/ProgramChangeRepository.cs, Controllers/SimbaController.cs, Models/Simba.cs, Models/Repository/SimbaRepository.cs. Para leer: SP sin nombre (estado UNKNOWN); NWEB_canal_combo (estado UNKNOWN); nweb_carga_motivos_combo (estado UNKNOWN); nweb_descarte_motivos_combo (estado UNKNOWN). Para mandar o dar de alta: nweb_actua_emi_spots_alta (estado UNKNOWN). Hay SP sin uso claro (lectura vs envío): nweb_actua_emi_esta_artis_modi, nweb_actualiza_artis_emi_spots, nweb_actualiza_emisiones_artis, nweb_actua_carga_atras_bandeja, nweb_log, nweb_actua_emi_spots_recon_modi, nweb_actua_emi_spots_mueve. No se inventa el uso. El contrato no está confirmado: no se inventa la firma ni se marca Ready FE/BE. Para #6343 Nuevo submenu de Conciliation necesitamos la definición de un SP nuevo. Todavía no podemos pedir campos ni de dónde sale cada dato: hasta que SQL nos mande el contrato (nombre del SP, si es consulta o alta, y entradas/salidas) queda el pedido de esa definición.",
+      "codeNote": null,
+      "missingContract": true
+    },
+    {
+      "azureId": 6445,
+      "title": "mostrar los LOG tenis",
+      "screen": "NCSL",
+      "screenInferred": "NCSL",
+      "screenSource": "título de subtarea #6446",
+      "captures": [],
+      "frontendPages": [],
+      "apis": [],
+      "reads": [],
+      "writes": [],
+      "unknown": [],
+      "explanation": "#6445 mostrar los LOG tenis. Pantalla: NCSL (desde título de subtarea #6446). No se encontraron APIs en archivos FE candidatos para esta pantalla. Frontend: no hay subtarea ni archivo indexado. Backend: #6447 agregar en Production LOG la marca · Boggio, Maximiliano -ND. Para leer: no hay un SP de consulta con nombre en la evidencia. Para mandar o dar de alta: no aparece un SP de escritura/envío.",
+      "codeNote": "No se encontraron APIs en archivos FE candidatos para esta pantalla.",
+      "missingContract": false
+    },
+    {
+      "azureId": 6573,
+      "title": "NWEB - Production Log - Logs",
+      "screen": "Production Log",
+      "screenInferred": "Production Log",
+      "screenSource": "campo pantalla/módulo en Azure",
+      "captures": [
+        {
+          "azureId": 6573,
+          "fileName": "6573-image.png",
+          "url": "/attachments/att-6573-inline-image",
+          "inferredScreen": null
+        },
+        {
+          "azureId": 6573,
+          "fileName": "imagen embebida",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/8c5eecb3-6d51-4d84-9fbf-8333308f2e58?fileName=image.png",
+          "inferredScreen": "Production Log"
+        },
+        {
+          "azureId": 6573,
+          "fileName": "6573-image.png",
+          "url": "/attachments/file/6573-image.png",
+          "inferredScreen": "Production Log"
+        }
+      ],
+      "frontendPages": [
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/ProductionLog/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/Logs/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrdersEditable/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrders/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/SpotsReallocation/index.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/EpisodeInfoHeader.js",
+        "src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/excelExport.js"
+      ],
+      "apis": [
+        "GET /api/simba/materiales_log/* → NWEB_materiales_log [lectura] SimbaController.GetSimbaMaterialesLog",
+        "GET /api/simba/ordenes_epi_detalle/ → ? [lectura] null",
+        "GET /api/simba/reallocate_epi_detalle/* → simba_reallocate_epi_detalle [lectura] SimbaController.ReallocateEpiDetalle",
+        "POST /api/simba/epi_restricciones_detalle → simba_epi_restricciones_detalle [envio] SimbaController.GetSimbaEpiRestriccionesDetalle",
+        "POST /api/simba/reallocate_epi_spot → simba_reallocate_epi_spot [envio] SimbaController.ReallocateEpiSpot",
+        "? /api/simba/ordenamiento_rutina_control → simba_rutina_spots_produc_graba [desconocido] SimbaController.SetSimbaOrdenamientoRutinaControl"
+      ],
+      "reads": [
+        null,
+        "NWEB_materiales_log",
+        "simba_reallocate_epi_detalle"
+      ],
+      "writes": [
+        "simba_epi_restricciones_detalle",
+        "simba_reallocate_epi_spot"
+      ],
+      "unknown": [
+        "simba_rutina_spots_produc_graba"
+      ],
+      "explanation": "#6573 NWEB - Production Log - Logs. Pantalla: Production Log (desde campo pantalla/módulo en Azure). Capturas: 3 imagen(es) en la historia/subtareas; sugieren «Production Log, Production Log». Pantalla FE candidata: src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/ProductionLog/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/Logs/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrdersEditable/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrders/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/SpotsReallocation/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/EpisodeInfoHeader.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/excelExport.js. API para mostrar: GET /api/simba/materiales_log/* · SimbaController.GetSimbaMaterialesLog · model SimbaController → SP NWEB_materiales_log; GET /api/simba/ordenes_epi_detalle/; GET /api/simba/reallocate_epi_detalle/* · SimbaController.ReallocateEpiDetalle · model SimbaController → SP simba_reallocate_epi_detalle. API al guardar: POST /api/simba/epi_restricciones_detalle · SimbaController.GetSimbaEpiRestriccionesDetalle · model SimbaController → SP simba_epi_restricciones_detalle; POST /api/simba/reallocate_epi_spot · SimbaController.ReallocateEpiSpot · model SimbaController → SP simba_reallocate_epi_spot. Otras APIs: /api/simba/ordenamiento_rutina_control · SimbaController.SetSimbaOrdenamientoRutinaControl · model SimbaController → SP simba_rutina_spots_produc_graba. Frontend: sin subtarea. Archivos: src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/ProductionLog/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/Logs/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrdersEditable/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/TableOrders/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/SpotsReallocation/index.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/EpisodeInfoHeader.js, src/components/mediatracker/pages/scheduling/ContextMenu/RutinaProduction/excelExport.js, build/env/config.production.js, public/env/config.production.js. Backend: sin subtarea. Archivos: Controllers/SimbaController.cs, Models/Simba.cs, Models/Repository/SimbaRepository.cs. Para leer: SP sin nombre (estado PROPOSED); NWEB_materiales_log (estado UNKNOWN); simba_reallocate_epi_detalle (estado UNKNOWN). Para mandar o dar de alta: simba_epi_restricciones_detalle (estado UNKNOWN); simba_reallocate_epi_spot (estado UNKNOWN). Hay SP sin uso claro (lectura vs envío): simba_rutina_spots_produc_graba. No se inventa el uso. El contrato no está confirmado: no se inventa la firma ni se marca Ready FE/BE. Para #6573 NWEB - Production Log - Logs (pantalla Production Log) necesitamos la definición de un SP nuevo. Todavía no podemos pedir campos ni de dónde sale cada dato: hasta que SQL nos mande el contrato (nombre del SP, si es consulta o alta, y entradas/salidas) queda el pedido de esa definición.",
+      "codeNote": null,
+      "missingContract": true
+    },
+    {
+      "azureId": 6588,
+      "title": "NWEB - Reconciliation - Reject Reason",
+      "screen": "Reconciliation",
+      "screenInferred": "Reconciliation",
+      "screenSource": "captura o evidencia de imagen",
+      "captures": [
+        {
+          "azureId": 6588,
+          "fileName": "imagen embebida",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/72f8b282-8947-4998-aa1e-650d92b22f63?fileName=image.png",
+          "inferredScreen": "Reconciliation"
+        },
+        {
+          "azureId": 6588,
+          "fileName": "6588-image.png",
+          "url": "/attachments/file/6588-image.png",
+          "inferredScreen": "Reconciliation"
+        }
+      ],
+      "frontendPages": [
+        "src/components/mediatracker/pages/simba/Conciliation/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Logs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js",
+        "src/components/mediatracker/pages/reconciliation/Report/index.js"
+      ],
+      "apis": [
+        "GET /api/combos/canal/* → NWEB_canal_combo [lectura] CombosController.GetCanalesComboArtis",
+        "GET /api/simba/carga_motivos_combo → nweb_carga_motivos_combo [lectura] SimbaController.GetCargaMotivosCombo",
+        "GET /api/simba/descarte_motivos_combo → nweb_descarte_motivos_combo [lectura] SimbaController.GetDescarteMotivosCombo",
+        "GET /api/simba/emi_spots_vendedores_consulta → nweb_emi_spots_vendedores_consulta [lectura] SimbaController.GetEmiSpotsVendedoresConsulta",
+        "? /api/simba/actua_esta_tanda → nweb_actua_emi_esta_artis_modi [desconocido] SimbaController.ActuaEstaTanda",
+        "? /api/simba/actualiza_artis_emi_spots → nweb_actualiza_artis_emi_spots [desconocido] SimbaController.GetActualizaArtisEmiSpots",
+        "? /api/simba/actualiza_emisiones_artis → nweb_actualiza_emisiones_artis [desconocido] SimbaController.GetActualizaEmisionesArtis",
+        "? /api/simba/carga_atras_bandeja → nweb_actua_carga_atras_bandeja [desconocido] SimbaController.GetCargaAtrasBandeja",
+        "? /api/simba/conciliacion_logs/* → nweb_log [desconocido] SimbaController.GetConciliacionLogs",
+        "? /api/simba/emi_spots_alta → nweb_actua_emi_spots_alta [desconocido] SimbaController.EmiSpotsAlta",
+        "? /api/simba/recon_modi → nweb_actua_emi_spots_recon_modi [desconocido] SimbaController.ReconModi",
+        "? /api/simba/spots_mover_progra → nweb_actua_emi_spots_mueve [desconocido] SimbaController.SpotsMoverProgra"
+      ],
+      "reads": [
+        null,
+        "NWEB_canal_combo",
+        "nweb_carga_motivos_combo",
+        "nweb_descarte_motivos_combo",
+        "nweb_emi_spots_vendedores_consulta"
+      ],
+      "writes": [
+        "nweb_actua_emi_spots_alta"
+      ],
+      "unknown": [
+        "nweb_actua_emi_esta_artis_modi",
+        "nweb_actualiza_artis_emi_spots",
+        "nweb_actualiza_emisiones_artis",
+        "nweb_actua_carga_atras_bandeja",
+        "nweb_log",
+        "nweb_actua_emi_spots_recon_modi",
+        "nweb_actua_emi_spots_mueve"
+      ],
+      "explanation": "#6588 NWEB - Reconciliation - Reject Reason. Pantalla: Reconciliation (desde captura o evidencia de imagen). Capturas: 2 imagen(es) en la historia/subtareas; sugieren «Reconciliation, Reconciliation». Pantalla FE candidata: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/reconciliation/Report/index.js. API para mostrar: GET /api/combos/canal/* · CombosController.GetCanalesComboArtis · model CombosController → SP NWEB_canal_combo; GET /api/simba/carga_motivos_combo · SimbaController.GetCargaMotivosCombo · model SimbaController → SP nweb_carga_motivos_combo; GET /api/simba/descarte_motivos_combo · SimbaController.GetDescarteMotivosCombo · model SimbaController → SP nweb_descarte_motivos_combo; GET /api/simba/emi_spots_vendedores_consulta · SimbaController.GetEmiSpotsVendedoresConsulta · model SimbaController → SP nweb_emi_spots_vendedores_consulta. Otras APIs: /api/simba/actua_esta_tanda · SimbaController.ActuaEstaTanda · model SimbaController → SP nweb_actua_emi_esta_artis_modi; /api/simba/actualiza_artis_emi_spots · SimbaController.GetActualizaArtisEmiSpots · model SimbaController → SP nweb_actualiza_artis_emi_spots; /api/simba/actualiza_emisiones_artis · SimbaController.GetActualizaEmisionesArtis · model SimbaController → SP nweb_actualiza_emisiones_artis; /api/simba/carga_atras_bandeja · SimbaController.GetCargaAtrasBandeja · model SimbaController → SP nweb_actua_carga_atras_bandeja; /api/simba/conciliacion_logs/* · SimbaController.GetConciliacionLogs · model SimbaController → SP nweb_log; /api/simba/emi_spots_alta · SimbaController.EmiSpotsAlta · model SimbaController → SP nweb_actua_emi_spots_alta; /api/simba/recon_modi · SimbaController.ReconModi · model SimbaController → SP nweb_actua_emi_spots_recon_modi; /api/simba/spots_mover_progra · SimbaController.SpotsMoverProgra · model SimbaController → SP nweb_actua_emi_spots_mueve. Frontend: #6590 NWEB · Riboldi, Ivan -ND. Archivos: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/reconciliation/Report/index.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationSearch.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js. Backend: sin subtarea. Archivos: Controllers/CombosController.cs, Models/Combo.cs, Models/Repository/ProgramChangeRepository.cs, Controllers/SimbaController.cs, Models/Simba.cs, Models/Repository/SimbaRepository.cs. Para leer: SP sin nombre (estado UNKNOWN); NWEB_canal_combo (estado UNKNOWN); nweb_carga_motivos_combo (estado UNKNOWN); nweb_descarte_motivos_combo (estado UNKNOWN); nweb_emi_spots_vendedores_consulta (estado UNKNOWN). Para mandar o dar de alta: nweb_actua_emi_spots_alta (estado UNKNOWN). Hay SP sin uso claro (lectura vs envío): nweb_actua_emi_esta_artis_modi, nweb_actualiza_artis_emi_spots, nweb_actualiza_emisiones_artis, nweb_actua_carga_atras_bandeja, nweb_log, nweb_actua_emi_spots_recon_modi, nweb_actua_emi_spots_mueve. No se inventa el uso. El contrato no está confirmado: no se inventa la firma ni se marca Ready FE/BE. Para #6588 NWEB - Reconciliation - Reject Reason necesitamos la definición de un SP nuevo. Todavía no podemos pedir campos ni de dónde sale cada dato: hasta que SQL nos mande el contrato (nombre del SP, si es consulta o alta, y entradas/salidas) queda el pedido de esa definición.",
+      "codeNote": null,
+      "missingContract": true
+    },
+    {
+      "azureId": 6591,
+      "title": "NWEB - Reconciliation - NoRun y Added- Reload",
+      "screen": "Reconciliation",
+      "screenInferred": "Reconciliation",
+      "screenSource": "captura o evidencia de imagen",
+      "captures": [
+        {
+          "azureId": 6591,
+          "fileName": "imagen embebida",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/c0108cec-d7ff-4733-acba-2f497f5dac01?fileName=image.png",
+          "inferredScreen": "Reconciliation"
+        },
+        {
+          "azureId": 6591,
+          "fileName": "imagen embebida",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/0e1d93fc-5215-4bae-8bd4-f43fa5717ebf?fileName=image.png",
+          "inferredScreen": "Reconciliation"
+        }
+      ],
+      "frontendPages": [
+        "src/components/mediatracker/pages/simba/Conciliation/InformationForm.js",
+        "src/components/mediatracker/pages/simba/Conciliation/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Logs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js"
+      ],
+      "apis": [
+        "GET /api/combos/canal/* → NWEB_canal_combo [lectura] CombosController.GetCanalesComboArtis",
+        "GET /api/simba/carga_motivos_combo → nweb_carga_motivos_combo [lectura] SimbaController.GetCargaMotivosCombo",
+        "GET /api/simba/descarte_motivos_combo → nweb_descarte_motivos_combo [lectura] SimbaController.GetDescarteMotivosCombo",
+        "POST /api/simba/carga_atras_graba → nweb_carga_atras_graba [envio] SimbaController.CargaAtrasGraba",
+        "POST /api/simba/clientes_f3 → nweb_clientes_f3 [envio] SimbaController.GetClientesF3",
+        "POST /api/simba/emi_spots_impor_sugerir → nweb_emi_spots_impor_sugerir [envio] SimbaController.GetEmiSpotsImporSugerir",
+        "POST /api/simba/materiales_f3 → nweb_carga_atras_materiales_f3 [envio] SimbaController.GetMaterialesF3",
+        "POST /api/simba/pob_f3 → nweb_carga_atras_pob_f3 [envio] SimbaController.GetPobF3",
+        "POST /api/simba/selling_rotations_f3 → nweb_selling_rotations_f3 [envio] SimbaController.GetSellingRotationsF3",
+        "? /api/simba/actua_esta_tanda → nweb_actua_emi_esta_artis_modi [desconocido] SimbaController.ActuaEstaTanda",
+        "? /api/simba/actualiza_artis_emi_spots → nweb_actualiza_artis_emi_spots [desconocido] SimbaController.GetActualizaArtisEmiSpots",
+        "? /api/simba/actualiza_emisiones_artis → nweb_actualiza_emisiones_artis [desconocido] SimbaController.GetActualizaEmisionesArtis",
+        "? /api/simba/carga_atras_bandeja → nweb_actua_carga_atras_bandeja [desconocido] SimbaController.GetCargaAtrasBandeja",
+        "? /api/simba/clientes_f3 → nweb_clientes_f3 [desconocido] SimbaController.GetClientesF3",
+        "? /api/simba/conciliacion_logs/* → nweb_log [desconocido] SimbaController.GetConciliacionLogs",
+        "? /api/simba/emi_spots_alta → nweb_actua_emi_spots_alta [desconocido] SimbaController.EmiSpotsAlta",
+        "? /api/simba/recon_modi → nweb_actua_emi_spots_recon_modi [desconocido] SimbaController.ReconModi",
+        "? /api/simba/spots_mover_progra → nweb_actua_emi_spots_mueve [desconocido] SimbaController.SpotsMoverProgra"
+      ],
+      "reads": [
+        "NWEB_canal_combo",
+        "nweb_carga_motivos_combo",
+        "nweb_descarte_motivos_combo"
+      ],
+      "writes": [
+        "Reload Added + NoRun",
+        "Reload Added + NoRun (contrato pendiente)",
+        "nweb_carga_atras_graba",
+        "nweb_clientes_f3",
+        "nweb_emi_spots_impor_sugerir",
+        "nweb_carga_atras_materiales_f3",
+        "nweb_carga_atras_pob_f3",
+        "nweb_selling_rotations_f3",
+        "nweb_actua_emi_spots_alta"
+      ],
+      "unknown": [
+        "nweb_actua_emi_esta_artis_modi",
+        "nweb_actualiza_artis_emi_spots",
+        "nweb_actualiza_emisiones_artis",
+        "nweb_actua_carga_atras_bandeja",
+        "nweb_clientes_f3",
+        "nweb_log",
+        "nweb_actua_emi_spots_recon_modi",
+        "nweb_actua_emi_spots_mueve"
+      ],
+      "explanation": "#6591 NWEB - Reconciliation - NoRun y Added- Reload. Pantalla: Reconciliation (desde captura o evidencia de imagen). Capturas: 2 imagen(es) en la historia/subtareas; sugieren «Reconciliation, Reconciliation». Pantalla FE candidata: src/components/mediatracker/pages/simba/Conciliation/InformationForm.js, src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js. API para mostrar: GET /api/combos/canal/* · CombosController.GetCanalesComboArtis · model CombosController → SP NWEB_canal_combo; GET /api/simba/carga_motivos_combo · SimbaController.GetCargaMotivosCombo · model SimbaController → SP nweb_carga_motivos_combo; GET /api/simba/descarte_motivos_combo · SimbaController.GetDescarteMotivosCombo · model SimbaController → SP nweb_descarte_motivos_combo. API al guardar: POST /api/simba/carga_atras_graba · SimbaController.CargaAtrasGraba · model SimbaController → SP nweb_carga_atras_graba; POST /api/simba/clientes_f3 · SimbaController.GetClientesF3 · model SimbaController → SP nweb_clientes_f3; POST /api/simba/emi_spots_impor_sugerir · SimbaController.GetEmiSpotsImporSugerir · model SimbaController → SP nweb_emi_spots_impor_sugerir; POST /api/simba/materiales_f3 · SimbaController.GetMaterialesF3 · model SimbaController → SP nweb_carga_atras_materiales_f3; POST /api/simba/pob_f3 · SimbaController.GetPobF3 · model SimbaController → SP nweb_carga_atras_pob_f3; POST /api/simba/selling_rotations_f3 · SimbaController.GetSellingRotationsF3 · model SimbaController → SP nweb_selling_rotations_f3. Otras APIs: /api/simba/actua_esta_tanda · SimbaController.ActuaEstaTanda · model SimbaController → SP nweb_actua_emi_esta_artis_modi; /api/simba/actualiza_artis_emi_spots · SimbaController.GetActualizaArtisEmiSpots · model SimbaController → SP nweb_actualiza_artis_emi_spots; /api/simba/actualiza_emisiones_artis · SimbaController.GetActualizaEmisionesArtis · model SimbaController → SP nweb_actualiza_emisiones_artis; /api/simba/carga_atras_bandeja · SimbaController.GetCargaAtrasBandeja · model SimbaController → SP nweb_actua_carga_atras_bandeja; /api/simba/clientes_f3 · SimbaController.GetClientesF3 · model SimbaController → SP nweb_clientes_f3; /api/simba/conciliacion_logs/* · SimbaController.GetConciliacionLogs · model SimbaController → SP nweb_log; /api/simba/emi_spots_alta · SimbaController.EmiSpotsAlta · model SimbaController → SP nweb_actua_emi_spots_alta; /api/simba/recon_modi · SimbaController.ReconModi · model SimbaController → SP nweb_actua_emi_spots_recon_modi; /api/simba/spots_mover_progra · SimbaController.SpotsMoverProgra · model SimbaController → SP nweb_actua_emi_spots_mueve. Frontend: #6593 NWEB -FE · Riboldi, Ivan -ND. Archivos: src/components/mediatracker/pages/simba/Conciliation/InformationForm.js, src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationSearch.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js. Backend: #6626 NWEB- BE · Boggio, Maximiliano -ND. Archivos: Controllers/CombosController.cs, Models/Combo.cs, Models/Repository/ProgramChangeRepository.cs, Controllers/SimbaController.cs, Models/Simba.cs, Models/Repository/SimbaRepository.cs. Para leer: NWEB_canal_combo (estado UNKNOWN); nweb_carga_motivos_combo (estado UNKNOWN); nweb_descarte_motivos_combo (estado UNKNOWN). Para mandar o dar de alta: Reload Added + NoRun (estado REQUESTED); Reload Added + NoRun (contrato pendiente) (estado UNKNOWN); nweb_carga_atras_graba (estado UNKNOWN); nweb_clientes_f3 (estado UNKNOWN); nweb_emi_spots_impor_sugerir (estado UNKNOWN); nweb_carga_atras_materiales_f3 (estado UNKNOWN); nweb_carga_atras_pob_f3 (estado UNKNOWN); nweb_selling_rotations_f3 (estado UNKNOWN); nweb_actua_emi_spots_alta (estado UNKNOWN). Hay SP sin uso claro (lectura vs envío): nweb_actua_emi_esta_artis_modi, nweb_actualiza_artis_emi_spots, nweb_actualiza_emisiones_artis, nweb_actua_carga_atras_bandeja, nweb_clientes_f3, nweb_log, nweb_actua_emi_spots_recon_modi, nweb_actua_emi_spots_mueve. No se inventa el uso. El contrato no está confirmado: no se inventa la firma ni se marca Ready FE/BE. Para NWEB - Reconciliation - NoRun y Added- Reload (#6591 NWEB - Reconciliation - NoRun y Added- Reload) hay que agregar datos en el SP Reload Added + NoRun (contrato pendiente). Falta: Nombre y firma del SP Reload desde Added, Nombre y firma del SP Reload desde NoRun, Parámetro Hit Time (tipo, timezone, editable o no), Regla de default Hit Time desde NoRun (inicio del programa: campo/origen). Cuando pregunten de dónde sale o qué SP es el de esta pantalla: Reload Added + NoRun (contrato pendiente).",
+      "codeNote": null,
+      "missingContract": true
+    },
+    {
+      "azureId": 6595,
+      "title": "NWEB - Reconciliation - NoRun - No Run Reason",
+      "screen": "Reconciliation",
+      "screenInferred": "Reconciliation",
+      "screenSource": "captura o evidencia de imagen",
+      "captures": [
+        {
+          "azureId": 6595,
+          "fileName": "imagen embebida",
+          "url": "https://dev.azure.com/DMEDLATSYS/bf3ec2c8-f4c6-45e6-8a50-44115c5c970e/_apis/wit/attachments/0986bb17-3d83-42b2-8555-613bd01b4c9e?fileName=image.png",
+          "inferredScreen": "Reconciliation"
+        },
+        {
+          "azureId": 6595,
+          "fileName": "6595-image.png",
+          "url": "/attachments/file/6595-image.png",
+          "inferredScreen": "Reconciliation"
+        }
+      ],
+      "frontendPages": [
+        "src/components/mediatracker/pages/simba/Conciliation/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/Logs/index.js",
+        "src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js",
+        "src/components/mediatracker/pages/reconciliation/Report/index.js"
+      ],
+      "apis": [
+        "GET /api/combos/canal/* → NWEB_canal_combo [lectura] CombosController.GetCanalesComboArtis",
+        "GET /api/simba/carga_motivos_combo → nweb_carga_motivos_combo [lectura] SimbaController.GetCargaMotivosCombo",
+        "GET /api/simba/descarte_motivos_combo → nweb_descarte_motivos_combo [lectura] SimbaController.GetDescarteMotivosCombo",
+        "GET /api/simba/emi_spots_vendedores_consulta → nweb_emi_spots_vendedores_consulta [lectura] SimbaController.GetEmiSpotsVendedoresConsulta",
+        "? /api/simba/actua_esta_tanda → nweb_actua_emi_esta_artis_modi [desconocido] SimbaController.ActuaEstaTanda",
+        "? /api/simba/actualiza_artis_emi_spots → nweb_actualiza_artis_emi_spots [desconocido] SimbaController.GetActualizaArtisEmiSpots",
+        "? /api/simba/actualiza_emisiones_artis → nweb_actualiza_emisiones_artis [desconocido] SimbaController.GetActualizaEmisionesArtis",
+        "? /api/simba/carga_atras_bandeja → nweb_actua_carga_atras_bandeja [desconocido] SimbaController.GetCargaAtrasBandeja",
+        "? /api/simba/conciliacion_logs/* → nweb_log [desconocido] SimbaController.GetConciliacionLogs",
+        "? /api/simba/emi_spots_alta → nweb_actua_emi_spots_alta [desconocido] SimbaController.EmiSpotsAlta",
+        "? /api/simba/recon_modi → nweb_actua_emi_spots_recon_modi [desconocido] SimbaController.ReconModi",
+        "? /api/simba/spots_mover_progra → nweb_actua_emi_spots_mueve [desconocido] SimbaController.SpotsMoverProgra"
+      ],
+      "reads": [
+        null,
+        "NWEB_canal_combo",
+        "nweb_carga_motivos_combo",
+        "nweb_descarte_motivos_combo",
+        "nweb_emi_spots_vendedores_consulta"
+      ],
+      "writes": [
+        "nweb_actua_emi_spots_alta"
+      ],
+      "unknown": [
+        "nweb_actua_emi_esta_artis_modi",
+        "nweb_actualiza_artis_emi_spots",
+        "nweb_actualiza_emisiones_artis",
+        "nweb_actua_carga_atras_bandeja",
+        "nweb_log",
+        "nweb_actua_emi_spots_recon_modi",
+        "nweb_actua_emi_spots_mueve"
+      ],
+      "explanation": "#6595 NWEB - Reconciliation - NoRun - No Run Reason. Pantalla: Reconciliation (desde captura o evidencia de imagen). Capturas: 2 imagen(es) en la historia/subtareas; sugieren «Reconciliation, Reconciliation». Pantalla FE candidata: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/reconciliation/Report/index.js. API para mostrar: GET /api/combos/canal/* · CombosController.GetCanalesComboArtis · model CombosController → SP NWEB_canal_combo; GET /api/simba/carga_motivos_combo · SimbaController.GetCargaMotivosCombo · model SimbaController → SP nweb_carga_motivos_combo; GET /api/simba/descarte_motivos_combo · SimbaController.GetDescarteMotivosCombo · model SimbaController → SP nweb_descarte_motivos_combo; GET /api/simba/emi_spots_vendedores_consulta · SimbaController.GetEmiSpotsVendedoresConsulta · model SimbaController → SP nweb_emi_spots_vendedores_consulta. Otras APIs: /api/simba/actua_esta_tanda · SimbaController.ActuaEstaTanda · model SimbaController → SP nweb_actua_emi_esta_artis_modi; /api/simba/actualiza_artis_emi_spots · SimbaController.GetActualizaArtisEmiSpots · model SimbaController → SP nweb_actualiza_artis_emi_spots; /api/simba/actualiza_emisiones_artis · SimbaController.GetActualizaEmisionesArtis · model SimbaController → SP nweb_actualiza_emisiones_artis; /api/simba/carga_atras_bandeja · SimbaController.GetCargaAtrasBandeja · model SimbaController → SP nweb_actua_carga_atras_bandeja; /api/simba/conciliacion_logs/* · SimbaController.GetConciliacionLogs · model SimbaController → SP nweb_log; /api/simba/emi_spots_alta · SimbaController.EmiSpotsAlta · model SimbaController → SP nweb_actua_emi_spots_alta; /api/simba/recon_modi · SimbaController.ReconModi · model SimbaController → SP nweb_actua_emi_spots_recon_modi; /api/simba/spots_mover_progra · SimbaController.SpotsMoverProgra · model SimbaController → SP nweb_actua_emi_spots_mueve. Frontend: #6627 NWEB - pop up y seleccion multiples · Riboldi, Ivan -ND. Archivos: src/components/mediatracker/pages/simba/Conciliation/index.js, src/components/mediatracker/pages/simba/Conciliation/Tabs/index.js, src/components/mediatracker/pages/simba/Conciliation/ReloadModal/index.js, src/components/mediatracker/pages/simba/Conciliation/Reload.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Reject.js/index.js, src/components/mediatracker/pages/simba/Conciliation/Logs/index.js, src/components/mediatracker/pages/simba/Conciliation/ImageModal/index.js, src/components/mediatracker/pages/reconciliation/Report/index.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationSearch.js, src/components/mediatracker/pages/simba/Conciliation/ConciliationPreSearch.js. Backend: #6597 NWEB-BE · Boggio, Maximiliano -ND. Archivos: Controllers/CombosController.cs, Models/Combo.cs, Models/Repository/ProgramChangeRepository.cs, Controllers/SimbaController.cs, Models/Simba.cs, Models/Repository/SimbaRepository.cs. Para leer: SP sin nombre (estado UNKNOWN); NWEB_canal_combo (estado UNKNOWN); nweb_carga_motivos_combo (estado UNKNOWN); nweb_descarte_motivos_combo (estado UNKNOWN); nweb_emi_spots_vendedores_consulta (estado UNKNOWN). Para mandar o dar de alta: nweb_actua_emi_spots_alta (estado UNKNOWN). Hay SP sin uso claro (lectura vs envío): nweb_actua_emi_esta_artis_modi, nweb_actualiza_artis_emi_spots, nweb_actualiza_emisiones_artis, nweb_actua_carga_atras_bandeja, nweb_log, nweb_actua_emi_spots_recon_modi, nweb_actua_emi_spots_mueve. No se inventa el uso. El contrato no está confirmado: no se inventa la firma ni se marca Ready FE/BE. Para #6595 NWEB - Reconciliation - NoRun - No Run Reason necesitamos la definición de un SP nuevo. Todavía no podemos pedir campos ni de dónde sale cada dato: hasta que SQL nos mande el contrato (nombre del SP, si es consulta o alta, y entradas/salidas) queda el pedido de esa definición.",
+      "codeNote": null,
+      "missingContract": true
+    }
+  ]
+}

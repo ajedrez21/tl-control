@@ -1,4 +1,5 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createReadStream, existsSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,15 +10,23 @@ import { openDb, all, get, run, type Db, getMeta, sqlv } from "../storage/db.ts"
 import { lastSync, markDemo, purgeDemoDataset } from "../storage/backup.ts";
 import { computeSprintMetrics, chartStateDistribution, isInProduction, type ScopeMetrics } from "../metrics/sprint.ts";
 import { idsHiddenByBlock, isBlockedWorkItem } from "../metrics/blocked.ts";
-import { listSqlGaps } from "../metrics/sql-gaps.ts";
+import { dismissSqlGap, listSqlGaps } from "../metrics/sql-gaps.ts";
+import { listSpDossier } from "../metrics/sp-dossier.ts";
+import { renderSpReport } from "../report/sp.ts";
 import { answerFunctionalQuestion, listFunctionalQuestions, publishFunctionalQuestions } from "../analysis/functional-questions.ts";
 import { AzureDevOpsClient } from "../adapters/azure/client.ts";
 import { FetchHttpClient } from "../adapters/http.ts";
 import { renderDailyReport } from "../report/daily.ts";
 import { refreshAlerts } from "../metrics/alerts.ts";
 import { listReleases, storyReleaseStatus } from "../metrics/releases.ts";
-import { calendarDaysBetween, nowIso } from "../domain/time.ts";
+import { resolveWorkItemArg } from "../domain/ids.ts";
+import { nowIso } from "../domain/time.ts";
 import { sanitizeHtml } from "../domain/sanitize.ts";
+import {
+  azureAttachmentDownloadUrl,
+  isSafeAzureAttachmentUrl,
+  rewriteAzureAttachmentUrls
+} from "../domain/azure-images.ts";
 import { normalizeState, stateLabel, type NormalizedState } from "../domain/states.ts";
 import { memberLabel, memberTasks, upsertMembers, isTeamAssignment, defaultOwnerMember, hasValidAzureId } from "../domain/members.ts";
 import { loadMemberBoard, saveMemberBoard } from "../domain/board.ts";
@@ -98,6 +107,14 @@ async function handle(
 
   if (url.pathname.startsWith("/api/")) {
     await api(req, res, url, ctx);
+    return;
+  }
+  if (url.pathname.startsWith("/attachments/file/")) {
+    serveAttachmentFile(res, decodeURIComponent(url.pathname.slice("/attachments/file/".length)), ctx);
+    return;
+  }
+  if (url.pathname.startsWith("/attachments/azure/")) {
+    await serveAzureAttachment(res, decodeURIComponent(url.pathname.slice("/attachments/azure/".length)), ctx);
     return;
   }
   if (url.pathname.startsWith("/attachments/")) {
@@ -189,6 +206,16 @@ async function api(
     res.end(htmlDoc);
     return;
   }
+  if (url.pathname === "/api/sp-report" && req.method === "GET") {
+    const htmlDoc = renderSpReport(db, config, iteration);
+    res.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff"
+    });
+    res.end(htmlDoc);
+    return;
+  }
   if (url.pathname === "/api/grid") {
     json(res, 200, {
       rows: gridRows(db, config, iteration, url.searchParams.get("scope") !== "all"),
@@ -261,6 +288,30 @@ async function api(
   if (url.pathname === "/api/sync" && req.method === "POST") {
     const result = await ctx.autoSync.trigger();
     json(res, result.busy ? 409 : result.ok ? 200 : 400, result);
+    return;
+  }
+  if (url.pathname === "/api/sql-gaps/dismiss" && req.method === "POST") {
+    readJson(req, (body) => {
+      const raw = String(body.workItemId ?? body.azureId ?? "").trim();
+      if (!raw) {
+        json(res, 400, { ok: false, error: "Falta workItemId." });
+        return;
+      }
+      let id = raw;
+      try {
+        if (!raw.includes("/")) id = resolveWorkItemArg(raw, config.azure.organization, config.azure.project);
+      } catch {
+        json(res, 400, { ok: false, error: "ID inválido." });
+        return;
+      }
+      const row = get<{ id: string; azure_id: number }>(db, "SELECT id, azure_id FROM work_items WHERE id = ? OR azure_id = ?", id, Number(raw) || -1);
+      if (!row) {
+        json(res, 404, { ok: false, error: "NOT_FOUND" });
+        return;
+      }
+      const ok = dismissSqlGap(db, row.id);
+      json(res, ok ? 200 : 400, { ok, azureId: row.azure_id, workItemId: row.id, error: ok ? undefined : "No se pudo marcar." });
+    });
     return;
   }
   if (url.pathname === "/api/questions/answer" && req.method === "POST") {
@@ -437,6 +488,30 @@ function typeKind(type: string): "bug" | "story" | "task" {
   return "story";
 }
 
+function unpublishedDrafts(db: Db) {
+  const rows = all<{
+    parent_id: string;
+    assigned_to_id: string | null;
+    azure_id: number | null;
+    publish_status: string;
+    review_status: string;
+  }>(
+    db,
+    "SELECT parent_id, assigned_to_id, azure_id, publish_status, review_status FROM draft_tasks"
+  );
+  const map = new Map<string, { needAssign: number; needPublish: number; pending: number }>();
+  for (const row of rows) {
+    if (row.review_status === "rejected") continue;
+    if (row.azure_id != null || row.publish_status === "published") continue;
+    const cur = map.get(row.parent_id) ?? { needAssign: 0, needPublish: 0, pending: 0 };
+    cur.pending += 1;
+    if (!row.assigned_to_id) cur.needAssign += 1;
+    else if (row.review_status === "approved") cur.needPublish += 1;
+    map.set(row.parent_id, cur);
+  }
+  return map;
+}
+
 function skillTimes(db: Db, iteration: string): { analyzed: Map<string, string>; prepared: Map<string, string> } {
   const analyzed = new Map(
     all<{ work_item_id: string; created_at: string }>(
@@ -470,12 +545,14 @@ function gridRows(db: Db, config: AppConfig, iteration: string, teamOnly: boolea
     iteration
   );
   const times = skillTimes(db, iteration);
+  const drafts = unpublishedDrafts(db);
   const mapped = items.map((s) => {
     const id = String(s.id);
     const sp = get<{ status: string; lifecycle: string | null; name: string }>(db, "SELECT status, lifecycle, name FROM dependencies WHERE work_item_id = ? AND kind LIKE 'SP%' LIMIT 1", id);
     const rel = storyReleaseStatus(db, id);
     const owner = memberLabel(db, String(s.assigned_to_id ?? ""), String(s.assigned_to_name ?? ""));
     const inTeam = isTeamAssignment(config.team.members, String(s.assigned_to_id ?? ""), owner);
+    const queue = drafts.get(id) ?? { needAssign: 0, needPublish: 0, pending: 0 };
     return {
       id,
       azureId: s.azure_id,
@@ -501,6 +578,9 @@ function gridRows(db: Db, config: AppConfig, iteration: string, teamOnly: boolea
       stateLabel: stateLabel(s.state_normalized as NormalizedState),
       analyzedAt: times.analyzed.get(id) ?? null,
       preparedAt: times.prepared.get(id) ?? null,
+      draftsNeedAssign: queue.needAssign,
+      draftsNeedPublish: queue.needPublish,
+      draftsPending: queue.pending,
       depth: 0,
       group: "stories" as "bugs" | "stories" | "loose"
     };
@@ -561,10 +641,10 @@ function storyDetail(db: Db, config: AppConfig, raw: string, iteration: string) 
   if (!story) return { error: "NOT_FOUND" };
   const id = String(story.id);
   return {
-    story: { ...story, description_html: sanitizeHtml(String(story.description_html ?? "")) },
+    story: { ...story, description_html: displayHtml(String(story.description_html ?? "")) },
     comments: all<{ text_html: string }>(db, "SELECT * FROM comments WHERE work_item_id = ?", id).map((c) => ({
       ...c,
-      text_html: sanitizeHtml(String(c.text_html ?? ""))
+      text_html: displayHtml(String(c.text_html ?? ""))
     })),
     evidence: all(db, "SELECT * FROM evidence WHERE work_item_id = ?", id),
     attachments: all(db, "SELECT id, file_name, content_type FROM attachments WHERE work_item_id = ?", id),
@@ -581,7 +661,7 @@ function storyDetail(db: Db, config: AppConfig, raw: string, iteration: string) 
     questions: all(db, "SELECT * FROM questions WHERE work_item_id = ?", id),
     drafts: all<{ payload_json: string }>(db, "SELECT * FROM draft_tasks WHERE parent_id = ?", id).map((d) => {
       const { payload_json: raw, ...rest } = d;
-      return { ...rest, payload: parseJsonField(raw) };
+      return { ...rest, payload: rewriteDisplayHtmlTree(parseJsonField(raw)) };
     }),
     packages: all<{ payload_json: string }>(
       db,
@@ -594,7 +674,7 @@ function storyDetail(db: Db, config: AppConfig, raw: string, iteration: string) 
     results: all(db, "SELECT artifact_id, origin, imported_at, revision, context_hash FROM workflow_results WHERE work_item_id = ?", id),
     children: all<{ description_html: string | null }>(db, "SELECT azure_id, type, title, state_normalized, assigned_to_name, assigned_to_id, description_html, acceptance_criteria FROM work_items WHERE parent_id = ? ORDER BY azure_id", id).map((c) => ({
       ...c,
-      description_html: sanitizeHtml(String(c.description_html ?? ""))
+      description_html: displayHtml(String(c.description_html ?? ""))
     })),
     note: get(db, "SELECT note, updated_at FROM tl_notes WHERE work_item_id = ?", id),
     release: storyReleaseStatus(db, id),
@@ -612,26 +692,7 @@ function storyDetail(db: Db, config: AppConfig, raw: string, iteration: string) 
 }
 
 function spView(db: Db, config: AppConfig) {
-  const deps = all<Record<string, unknown>>(
-    db,
-    `SELECT d.* FROM dependencies d
-     JOIN work_items w ON w.id = d.work_item_id
-     WHERE d.kind LIKE 'SP%' AND w.iteration_id = ?`,
-    config.azure.iterationPath
-  );
-  const asOf = nowIso();
-  return {
-    timezone: config.timezone,
-    agingUnit: config.agingUnit,
-    items: deps.map((d) => {
-      const story = get<{ title: string; azure_id: number }>(db, "SELECT title, azure_id FROM work_items WHERE id = ?", sqlv(d.work_item_id));
-      const contract = d.contract_id
-        ? get(db, "SELECT * FROM contracts WHERE id = ?", sqlv(d.contract_id))
-        : null;
-      const days = d.blocked_at ? calendarDaysBetween(String(d.blocked_at), asOf, config.timezone) : 0;
-      return { ...d, story, contract, agingDays: days };
-    })
-  };
+  return listSpDossier(db, config);
 }
 
 function teamView(db: Db, config: AppConfig, iteration: string) {
@@ -659,6 +720,236 @@ function securityView(db: Db) {
     findings,
     note: "El gate vigente puede diferir de la última evidencia importada."
   };
+}
+
+const AZURE_GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const azureDownloads = new Map<string, Promise<string | null>>();
+
+function displayHtml(html: string): string {
+  return rewriteAzureAttachmentUrls(sanitizeHtml(html));
+}
+
+function rewriteDisplayHtmlTree(value: unknown): unknown {
+  if (typeof value === "string") return rewriteAzureAttachmentUrls(value);
+  if (Array.isArray(value)) return value.map((item) => rewriteDisplayHtmlTree(item));
+  if (!value || typeof value !== "object") return value;
+  const htmlKeys = new Set(["descriptionHtml", "html", "sourceUrl", "description_html", "text_html"]);
+  const walkKeys = new Set(["sourceContext", "comments", "attachments", "payload"]);
+  const out: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (htmlKeys.has(key) && typeof nested === "string") out[key] = rewriteAzureAttachmentUrls(nested);
+    else if (walkKeys.has(key)) out[key] = rewriteDisplayHtmlTree(nested);
+    else out[key] = nested;
+  }
+  return out;
+}
+
+function sniffImage(bytes: Buffer): { ext: string; type: string } {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return { ext: ".png", type: "image/png" };
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { ext: ".jpg", type: "image/jpeg" };
+  }
+  if (bytes.length >= 6 && bytes.subarray(0, 3).toString("ascii") === "GIF") {
+    return { ext: ".gif", type: "image/gif" };
+  }
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP") {
+    return { ext: ".webp", type: "image/webp" };
+  }
+  return { ext: ".bin", type: "application/octet-stream" };
+}
+
+function cachedAzurePath(root: string, guid: string): string | null {
+  for (const ext of [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bin"]) {
+    const target = join(root, `${guid}${ext}`);
+    if (existsSync(target)) return target;
+  }
+  return null;
+}
+
+function originalAzureUrl(db: Db, guid: string, organization: string): string | null {
+  const htmlRow = get<{ description_html: string }>(
+    db,
+    "SELECT description_html FROM work_items WHERE description_html LIKE ? LIMIT 1",
+    `%${guid}%`
+  );
+  const fromHtml = htmlRow ? extractOriginalUrl(htmlRow.description_html, guid) : null;
+  if (fromHtml && isSafeAzureAttachmentUrl(fromHtml, guid, organization)) return fromHtml;
+  const rel = get<{ target_url: string }>(
+    db,
+    "SELECT target_url FROM work_item_relations WHERE target_url LIKE ? LIMIT 1",
+    `%${guid}%`
+  );
+  if (rel?.target_url && isSafeAzureAttachmentUrl(rel.target_url, guid, organization)) return rel.target_url;
+  return null;
+}
+
+function extractOriginalUrl(html: string, guid: string): string | null {
+  const match = html.match(new RegExp(`https://dev\\.azure\\.com/[^"'\\s>]+/_apis/wit/attachments/${guid}(?:\\?[^"'\\s>]*)?`, "i"));
+  return match?.[0] ?? null;
+}
+
+async function serveAzureAttachment(
+  res: ServerResponse,
+  rawId: string,
+  ctx: { config: AppConfig; db: Db; dataDir: string }
+): Promise<void> {
+  const guid = (rawId.split("/")[0] ?? "").trim();
+  if (!AZURE_GUID_RE.test(guid)) {
+    json(res, 404, { error: "NOT_FOUND" });
+    return;
+  }
+  const id = guid.toLowerCase();
+  const root = resolve(join(ctx.dataDir, "attachments"));
+  const existing = cachedAzurePath(root, id);
+  if (existing) {
+    sendAttachmentFile(res, existing, sniffNameType(existing));
+    return;
+  }
+  let pending = azureDownloads.get(id);
+  if (!pending) {
+    pending = downloadAndCacheAzureAttachment(id, ctx, root);
+    azureDownloads.set(id, pending);
+    void pending.finally(() => azureDownloads.delete(id));
+  }
+  const stored = await pending;
+  if (!stored || !existsSync(stored)) {
+    json(res, 404, { error: "NOT_FOUND" });
+    return;
+  }
+  sendAttachmentFile(res, stored, sniffNameType(stored));
+}
+
+async function downloadAndCacheAzureAttachment(
+  guid: string,
+  ctx: { config: AppConfig; db: Db; dataDir: string },
+  root: string
+): Promise<string | null> {
+  const cached = cachedAzurePath(root, guid);
+  if (cached) return cached;
+  const pat = azurePat();
+  if (!pat) return null;
+  const original = originalAzureUrl(ctx.db, guid, ctx.config.azure.organization);
+  const url = original
+    ? withDownloadParam(original)
+    : azureAttachmentDownloadUrl({
+        organization: ctx.config.azure.organization,
+        project: ctx.config.azure.project,
+        apiVersion: ctx.config.azure.apiVersion,
+        guid
+      });
+  const client = new AzureDevOpsClient(ctx.config, new FetchHttpClient(), { pat });
+  let downloaded = await client.downloadAttachment(url);
+  if ((downloaded.status !== "OK" || downloaded.bytes.length === 0) && original) {
+    downloaded = await client.downloadAttachment(
+      azureAttachmentDownloadUrl({
+        organization: ctx.config.azure.organization,
+        project: ctx.config.azure.project,
+        apiVersion: ctx.config.azure.apiVersion,
+        guid
+      })
+    );
+  }
+  if (downloaded.status !== "OK" || downloaded.bytes.length === 0) return null;
+  const sniffed = sniffImage(downloaded.bytes);
+  const type = downloaded.contentType && downloaded.contentType.startsWith("image/") ? downloaded.contentType : sniffed.type;
+  const ext = type === "image/png" ? ".png" : type === "image/jpeg" ? ".jpg" : type === "image/gif" ? ".gif" : type === "image/webp" ? ".webp" : sniffed.ext;
+  let target: string;
+  try {
+    target = assertInsideDir(root, join(root, `${guid}${ext}`));
+  } catch {
+    return null;
+  }
+  writeFileSync(target, downloaded.bytes);
+  const sha = createHash("sha256").update(downloaded.bytes).digest("hex");
+  const owner = get<{ id: string }>(ctx.db, "SELECT id FROM work_items WHERE description_html LIKE ? LIMIT 1", `%${guid}%`);
+  run(
+    ctx.db,
+    `INSERT INTO attachments(id, work_item_id, file_name, content_type, sha256, stored_path, source_url, fetched_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       content_type=excluded.content_type,
+       sha256=excluded.sha256,
+       stored_path=excluded.stored_path,
+       source_url=excluded.source_url,
+       fetched_at=excluded.fetched_at`,
+    `azure-${guid}`,
+    owner?.id ?? null,
+    `imagen-${guid}${ext}`,
+    type,
+    sha,
+    target,
+    url,
+    nowIso()
+  );
+  return target;
+}
+
+function withDownloadParam(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("download", "true");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+function sniffNameType(file: string): { type: string; name: string } {
+  const ext = extname(file).toLowerCase();
+  const types: Record<string, string> = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp"
+  };
+  return { type: types[ext] || "application/octet-stream", name: file.replace(/\\/g, "/").split("/").pop() ?? "imagen" };
+}
+
+function sendAttachmentFile(res: ServerResponse, file: string, meta: { type: string; name: string }): void {
+  res.writeHead(200, {
+    "Content-Type": meta.type,
+    "Content-Disposition": `inline; filename="${meta.name.replaceAll('"', "")}"`,
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, max-age=86400"
+  });
+  createReadStream(file).pipe(res);
+}
+
+function serveAttachmentFile(res: ServerResponse, fileName: string, ctx: { db: Db; dataDir: string }): void {
+  const base = fileName.replace(/\\/g, "/").split("/").pop() ?? "";
+  if (!base || !/\.(png|jpe?g|gif|webp)$/i.test(base)) {
+    json(res, 404, { error: "NOT_FOUND" });
+    return;
+  }
+  const root = resolve(join(ctx.dataDir, "attachments"));
+  let target: string;
+  try {
+    target = assertInsideDir(root, join(root, base));
+  } catch {
+    json(res, 403, { error: "PATH_REJECTED" });
+    return;
+  }
+  if (!existsSync(target)) {
+    json(res, 404, { error: "NOT_FOUND" });
+    return;
+  }
+  const ext = extname(base).toLowerCase();
+  const types: Record<string, string> = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp"
+  };
+  res.writeHead(200, {
+    "Content-Type": types[ext] || "application/octet-stream",
+    "Content-Disposition": `inline; filename="${base.replaceAll('"', "")}"`,
+    "X-Content-Type-Options": "nosniff"
+  });
+  createReadStream(target).pipe(res);
 }
 
 function serveAttachment(res: ServerResponse, id: string, ctx: { db: Db; dataDir: string }): void {
