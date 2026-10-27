@@ -17,6 +17,7 @@ export interface FunctionalSource {
 export interface FunctionalDraft {
   code: string;
   question: string;
+  blocking: boolean;
 }
 
 export interface FunctionalQuestionGroup {
@@ -35,15 +36,9 @@ export function deriveFunctionalQuestions(items: FunctionalSource[]): Functional
   const blob = items.map((item) => `${item.title}\n${item.descriptionText}`).join("\n");
   const drafts: FunctionalDraft[] = [];
 
-  if (/sub\s*men[uú]|nueva pantalla|nuevo men[uú]/i.test(blob)) {
-    drafts.push({
-      code: "menu-place",
-      question: "¿En qué submenú va y cómo se va a llamar el ítem?"
-    });
-    drafts.push({
-      code: "menu-permission",
-      question: "¿Qué permiso habilita el ítem nuevo de menú?"
-    });
+  if (/sub\s*men[uú]|nueva pantalla|pantalla nueva|nuevo men[uú]|abajo de\b/i.test(blob)) {
+    drafts.push(followUp("menu-place", "¿En qué submenú va y cómo se va a llamar el ítem nuevo?"));
+    drafts.push(followUp("menu-permission", "¿Qué código de permiso/seguridad habilita el ítem nuevo de menú?"));
   }
 
   const seenRefs = new Set<string>();
@@ -52,32 +47,22 @@ export function deriveFunctionalQuestions(items: FunctionalSource[]): Functional
     const key = ref.toLowerCase();
     if (!ref || seenRefs.has(key)) continue;
     seenRefs.add(key);
-    drafts.push({
-      code: `reference-${slug(ref)}`,
-      question: `¿Qué pantalla existente es «${ref}» (ruta de menú) para repetir ese comportamiento?`
-    });
+    drafts.push(
+      followUp(`reference-${slug(ref)}`, `¿Qué pantalla existente es «${ref}» (ruta de menú) para repetir ese comportamiento?`)
+    );
   }
 
   if (/tooltip/i.test(blob)) {
-    drafts.push({
-      code: "tooltip-target",
-      question: "¿En qué grilla y columna va el tooltip, y qué texto muestra?"
-    });
+    drafts.push(followUp("tooltip-target", "¿En qué grilla y columna va el tooltip, y qué texto muestra?"));
   }
 
   const imageItem = items.find((item) => /<img\b/i.test(item.descriptionHtml));
   if (imageItem) {
-    drafts.push({
-      code: "screenshot",
-      question: `¿Qué hay que tomar de la captura de #${imageItem.azureId}?`
-    });
+    drafts.push(followUp("screenshot", `¿Qué hay que tomar de la captura de #${imageItem.azureId}?`));
   }
 
   if (drafts.length && !items.some((item) => item.acceptanceCriteria?.trim())) {
-    drafts.push({
-      code: "acceptance",
-      question: `¿Cuáles son los criterios de aceptación de #${root.azureId}?`
-    });
+    drafts.push(followUp("acceptance", `¿Cuáles son los criterios de aceptación de #${root.azureId}?`));
   }
 
   return drafts;
@@ -85,7 +70,7 @@ export function deriveFunctionalQuestions(items: FunctionalSource[]): Functional
 
 export function functionalQuestionsCopy(azureId: number, title: string, questions: string[]): string {
   const lines = questions.map((question, index) => `${index + 1}. ${question}`);
-  return `Para #${azureId} ${title} faltan estas definiciones:\n${lines.join("\n")}\nCuando respondan, se puede seguir con la historia. (${FUNCTIONAL_QUESTION_MARKER})`;
+  return `Para #${azureId} ${title} conviene confirmar (no bloquea las tareas; se puede responder después):\n${lines.join("\n")}\n(${FUNCTIONAL_QUESTION_MARKER})`;
 }
 
 export function syncFunctionalQuestions(db: Db, workItemId: string, items: FunctionalSource[]): void {
@@ -107,17 +92,26 @@ export function syncFunctionalQuestions(db: Db, workItemId: string, items: Funct
     const id = questionId(workItemId, draft.code);
     const current = get<{ status: string | null }>(db, "SELECT status FROM questions WHERE id = ?", id);
     if (current?.status === "answered") continue;
+    const blocking = draft.blocking ? 1 : 0;
     if (current) {
-      run(db, "UPDATE questions SET question = ?, code = ? WHERE id = ?", draft.question, draft.code, id);
+      run(
+        db,
+        "UPDATE questions SET question = ?, code = ?, blocking = ? WHERE id = ?",
+        draft.question,
+        draft.code,
+        blocking,
+        id
+      );
       continue;
     }
     run(
       db,
       `INSERT INTO questions(id, work_item_id, question, blocking, evidence_ids, status, code, asked_at)
-       VALUES (?, ?, ?, 1, '[]', 'pending', ?, ?)`,
+       VALUES (?, ?, ?, ?, '[]', 'pending', ?, ?)`,
       id,
       workItemId,
       draft.question,
+      blocking,
       draft.code,
       askedAt
     );
@@ -256,6 +250,10 @@ function settleAnsweredFromComments(db: Db, iterationId: string): void {
       run(db, "UPDATE questions SET status = 'answered', answered_at = ? WHERE id = ?", nowIso(), question.id);
     }
   }
+}
+
+function followUp(code: string, question: string): FunctionalDraft {
+  return { code, question, blocking: false };
 }
 
 function questionId(workItemId: string, code: string): string {

@@ -5,4 +5,6 @@ description: Analiza una historia con evidencia clasificada para TL Control. Usa
 
 Seguí `skills/analyze-story/SKILL.md`. Comando: `npx tsx src/cli/index.ts analyze-story <id>`.
 
+Nombre de menú, permiso y detalle de captura **no bloquean** armar ni ejecutar tareas; se responden después.
+
 **Límites:** respetá «Límites de código» del skill canónico. No implementar ni parchear repos de producto; repos configurados solo lectura para evidencia.

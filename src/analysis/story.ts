@@ -366,43 +366,29 @@ function draftFor(
     contract: spUnknown ? "SP UNKNOWN: no Ready" : "ver paquete",
     dod: ["Criterios comprobables", "Tests del plan", "Sin secretos en el contexto"],
     estimate: { value: story.estimate, official: false, assumptions: ["Estimación sugerida, no dato oficial Azure"] },
-    sourceContext
+    sourceContext: contextForLayer(layer, sourceContext)
   };
 }
 
+function contextForLayer(layer: "BE" | "FE", sourceContext: SourceContextItem[]): SourceContextItem[] {
+  if (layer === "FE") return sourceContext;
+  return sourceContext.map((item) => ({ ...item, attachments: [] }));
+}
+
+/** Bloque extra para Azure. Publish lo concatena a la descripción ya cargada; no la reemplaza. */
 export function azureDescriptionFromPayload(payload: Record<string, unknown>): string {
   const parts: string[] = [];
   const objetivo = text(payload.objetivo);
   const expected = text(payload.expected);
   const contract = text(payload.contract);
   const repo = repoLine(payload);
+  const contratoApiHtml = renderContratoApi(payload.contratoApi, text(payload.layer) === "BE");
+  if (contratoApiHtml) parts.push(contratoApiHtml);
   if (objetivo) parts.push(`<p><strong>Objetivo.</strong> ${escapeHtml(objetivo)}</p>`);
   if (expected && expected !== "UNKNOWN") parts.push(`<p><strong>Esperado.</strong> ${escapeHtml(expected)}</p>`);
   if (payload.blocked === true) parts.push("<p><strong>Estado.</strong> No iniciar hasta el handoff.</p>");
   if (repo) parts.push(`<p><strong>Repo.</strong> ${escapeHtml(repo)}</p>`);
-  if (contract) parts.push(`<p><strong>Contrato.</strong> ${escapeHtml(contract)}</p>`);
-  const ctx = Array.isArray(payload.sourceContext) ? (payload.sourceContext as SourceContextItem[]) : [];
-  if (ctx.length) {
-    parts.push("<h3>Más info (historia y subtareas)</h3>");
-    for (const item of ctx) {
-      parts.push(`<h4>#${item.azureId} ${escapeHtml(item.title)} (${escapeHtml(item.type)})</h4>`);
-      if (item.descriptionHtml) parts.push(item.descriptionHtml);
-      if (item.acceptanceCriteria?.trim()) {
-        parts.push(`<p><strong>AC.</strong> ${escapeHtml(item.acceptanceCriteria)}</p>`);
-      }
-      for (const comment of item.comments ?? []) {
-        parts.push(`<p><strong>Comentario ${escapeHtml(comment.author || "")}.</strong></p>${comment.html}`);
-      }
-      for (const att of item.attachments ?? []) {
-        const kind = att.image ? "Imagen" : "Adjunto";
-        if (att.image && att.sourceUrl) {
-          parts.push(`<p>${kind}: ${escapeHtml(att.fileName)}</p><p><img src="${escapeHtml(att.sourceUrl)}" alt="${escapeHtml(att.fileName)}"/></p>`);
-        } else {
-          parts.push(`<p>${kind}: ${escapeHtml(att.fileName)}${att.sourceUrl ? ` — ${escapeHtml(att.sourceUrl)}` : ""}</p>`);
-        }
-      }
-    }
-  }
+  if (!contratoApiHtml && contract) parts.push(`<p><strong>Contrato.</strong> ${escapeHtml(contract)}</p>`);
   const pasos = textList(payload.pasos);
   const fromFiles = textList(payload.files);
   const files = fromFiles.length ? fromFiles : textList(payload.archivosReferencia);
@@ -410,7 +396,72 @@ export function azureDescriptionFromPayload(payload: Record<string, unknown>): s
   if (pasos.length) parts.push(`<h3>Pasos</h3><ol>${pasos.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`);
   if (files.length) parts.push(`<h3>Archivos</h3><ul>${files.map((file) => `<li><code>${escapeHtml(file)}</code></li>`).join("")}</ul>`);
   if (dod.length) parts.push(`<h3>Definición de hecho</h3><ul>${dod.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`);
-  parts.push(`<p><em>Borrador TL Control ${nowIso()}</em></p>`);
+  const ctx = Array.isArray(payload.sourceContext) ? (payload.sourceContext as SourceContextItem[]) : [];
+  const contextHtml = renderSourceContextForPublish(ctx);
+  if (contextHtml) parts.push(contextHtml);
+  parts.push(`<p>Borrador TL Control ${escapeHtml(nowIso())}</p>`);
+  return `<!--TLC-EXTRA-->\n${parts.join("\n")}\n<!--/TLC-EXTRA-->`;
+}
+
+/** Conserva el HTML ya cargado y agrega (o refresca) el bloque extra de TL Control. */
+export function mergeAzureDescription(existingHtml: string | null | undefined, extraHtml: string): string {
+  const extra = extraHtml.trim();
+  if (!extra) return (existingHtml ?? "").trim();
+  const existing = stripTlcExtra(existingHtml ?? "").trim();
+  if (!existing) return extra;
+  if (isGeneratedTlDescription(existing)) return extra;
+  return `${existing}\n${extra}`;
+}
+
+function stripTlcExtra(html: string): string {
+  let out = html.replace(/<!--TLC-EXTRA-->[\s\S]*?<!--\/TLC-EXTRA-->/gi, "");
+  out = out.replace(/<h3>Contrato API<\/h3>[\s\S]*$/i, "");
+  const objetivoAt = out.search(/<p><strong>Objetivo\.<\/strong>/i);
+  if (objetivoAt >= 0) {
+    const rest = out.slice(objetivoAt);
+    if (/<h3>Archivos<\/h3>|<h3>Pasos<\/h3>|Borrador TL Control/i.test(rest)) {
+      out = out.slice(0, objetivoAt);
+    }
+  }
+  return out.trim();
+}
+
+function isGeneratedTlDescription(text: string): boolean {
+  return /Borrador TL Control/i.test(text);
+}
+
+function renderSourceContextForPublish(ctx: SourceContextItem[]): string {
+  if (!ctx.length) return "";
+  const parts: string[] = ["<h3>Más info (historia y subtareas)</h3>"];
+  for (const item of ctx) {
+    const desc = item.descriptionText?.trim() ?? "";
+    const hasDesc = Boolean(desc && !isGeneratedTlDescription(desc));
+    const hasAc = Boolean(item.acceptanceCriteria?.trim());
+    const hasComments = Boolean(item.comments?.length);
+    const hasAtt = Boolean(item.attachments?.length);
+    if (!hasDesc && !hasAc && !hasComments && !hasAtt) continue;
+    parts.push(`<h4>#${item.azureId} ${escapeHtml(item.title)} (${escapeHtml(item.type)})</h4>`);
+    if (hasDesc) {
+      for (const para of desc.split(/\n+/).map((p) => p.trim()).filter(Boolean)) {
+        parts.push(`<p>${escapeHtml(para)}</p>`);
+      }
+    }
+    if (item.acceptanceCriteria?.trim()) {
+      parts.push(`<p><strong>AC.</strong> ${escapeHtml(item.acceptanceCriteria)}</p>`);
+    }
+    for (const comment of item.comments ?? []) {
+      parts.push(`<p><strong>Comentario ${escapeHtml(comment.author || "")}.</strong></p>${comment.html}`);
+    }
+    for (const att of item.attachments ?? []) {
+      const kind = att.image ? "Imagen" : "Adjunto";
+      if (att.image && att.sourceUrl) {
+        parts.push(`<p>${kind}: ${escapeHtml(att.fileName)}</p><p><img src="${escapeHtml(att.sourceUrl)}" alt="${escapeHtml(att.fileName)}"/></p>`);
+      } else {
+        parts.push(`<p>${kind}: ${escapeHtml(att.fileName)}${att.sourceUrl ? ` — ${escapeHtml(att.sourceUrl)}` : ""}</p>`);
+      }
+    }
+  }
+  if (parts.length <= 1) return "";
   return parts.join("\n");
 }
 
@@ -427,6 +478,35 @@ function textList(value: unknown): string[] {
       return "";
     })
     .filter(Boolean);
+}
+
+function renderContratoApi(value: unknown, hideFront = false): string {
+  if (!Array.isArray(value) || !value.length) return "";
+  const parts: string[] = ["<h3>Contrato API</h3>"];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as Record<string, unknown>;
+    const method = text(item.method);
+    const route = text(item.route);
+    const ejemplo = text(item.ejemplo);
+    const sp = text(item.sp);
+    if (method || route) parts.push(`<p><strong>${escapeHtml([method, route].filter(Boolean).join(" "))}</strong></p>`);
+    if (ejemplo) parts.push(`<p><strong>Patrón.</strong> ${escapeHtml(ejemplo)}</p>`);
+    if (sp) parts.push(`<p><strong>SP.</strong> ${escapeHtml(sp)}</p>`);
+    const frontCall = hideFront ? "" : text(item.frontCall);
+    if (frontCall) parts.push(`<p><strong>Front.</strong></p><p>${azureMultiline(frontCall)}</p>`);
+    const requestDto = text(item.requestDto);
+    const responseDto = text(item.responseDto);
+    const map = text(item.map);
+    if (requestDto) parts.push(`<p><strong>Request DTO.</strong></p><p>${azureMultiline(requestDto)}</p>`);
+    if (responseDto) parts.push(`<p><strong>Response DTO.</strong></p><p>${azureMultiline(responseDto)}</p>`);
+    if (map) parts.push(`<p><strong>Mapeo SP → DTO.</strong></p><p>${azureMultiline(map)}</p>`);
+  }
+  return parts.join("\n");
+}
+
+function azureMultiline(value: string): string {
+  return escapeHtml(value).replace(/\r\n|\n|\r/g, "<br/>");
 }
 
 function repoLine(payload: Record<string, unknown>): string {

@@ -19,7 +19,7 @@ import { persistWorkItems, AzureDevOpsClient, syncIteration } from "../src/adapt
 import type { HttpClient, HttpRequest, HttpResponse } from "../src/adapters/http.ts";
 import { computeScope, computeSprintMetrics, isInProduction } from "../src/metrics/sprint.ts";
 import { refreshAlerts } from "../src/metrics/alerts.ts";
-import { analyzeStory, analyzeSp, azureDescriptionFromPayload, prepareStory } from "../src/analysis/story.ts";
+import { analyzeStory, analyzeSp, azureDescriptionFromPayload, mergeAzureDescription, prepareStory } from "../src/analysis/story.ts";
 import { assignDraft, publishApprovedDrafts, reviewDraft } from "../src/analysis/drafts.ts";
 import { validateTeamAi } from "../src/adapters/kit/validate.ts";
 import { importWorkResult } from "../src/adapters/kit/import.ts";
@@ -280,6 +280,8 @@ test("publicar aprobadas crea la tarea hija en Azure y no la duplica", async () 
   assert.equal(patches.length, 1);
   const update = JSON.parse(patches[0].body ?? "[]") as Array<{ path: string; value: unknown }>;
   assert.equal(update.find((op) => op.path === "/fields/System.AssignedTo")?.value, "Martín Soto");
+  assert.equal(update.find((op) => op.path === "/fields/System.Title"), undefined);
+  assert.equal(update.find((op) => op.path === "/fields/System.IterationPath"), undefined);
   const childAfter = get<{ assigned_to_name: string }>(db, "SELECT assigned_to_name FROM work_items WHERE azure_id = 9001");
   assert.equal(childAfter?.assigned_to_name, "Martín Soto");
   db.close();
@@ -287,6 +289,7 @@ test("publicar aprobadas crea la tarea hija en Azure y no la duplica", async () 
 
 class ScriptedAzure implements HttpClient {
   calls: HttpRequest[] = [];
+  lastFields = { title: "", description: "", assigned: "Lucía Fernández" };
 
   async request(req: HttpRequest): Promise<HttpResponse> {
     this.calls.push(req);
@@ -295,8 +298,10 @@ class ScriptedAzure implements HttpClient {
     }
     if ((req.method === "POST" || req.method === "PATCH") && req.url.includes("/wit/workitems/")) {
       const patch = JSON.parse(req.body ?? "[]") as Array<{ path: string; value: string }>;
-      const title = patch.find((op) => op.path === "/fields/System.Title")?.value ?? "";
-      const assigned = patch.find((op) => op.path === "/fields/System.AssignedTo")?.value ?? "Lucía Fernández";
+      const title = patch.find((op) => op.path === "/fields/System.Title")?.value ?? this.lastFields.title;
+      const description = patch.find((op) => op.path === "/fields/System.Description")?.value ?? this.lastFields.description;
+      const assigned = patch.find((op) => op.path === "/fields/System.AssignedTo")?.value ?? this.lastFields.assigned;
+      this.lastFields = { title, description, assigned };
       return {
         status: 200,
         body: JSON.stringify({
@@ -307,7 +312,7 @@ class ScriptedAzure implements HttpClient {
             "System.Title": title,
             "System.State": "New",
             "System.WorkItemType": "Task",
-            "System.Description": patch.find((op) => op.path === "/fields/System.Description")?.value ?? "",
+            "System.Description": description,
             "System.IterationPath": "TL Control Demo\\Sprint 24.10",
             "System.AssignedTo": { displayName: assigned, id: assigned === "Martín Soto" ? "bbbbbbbb-cccc-dddd-eeee-ffffffffffff" : "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
           },
@@ -578,25 +583,159 @@ test("prepare copia texto e imágenes de historia y subtareas al borrador", () =
   }
 
   const withImage = prepareStory(db, config, "4102") as {
-    drafts: Array<{ sourceContext: Array<{ azureId: number; attachments: Array<{ image: boolean; fileName: string }> }> }>;
+    drafts: Array<{
+      layer: string;
+      sourceContext: Array<{ azureId: number; attachments: Array<{ image: boolean; fileName: string }> }>;
+    }>;
   };
-  const images = withImage.drafts[0]!.sourceContext.flatMap((s) => s.attachments).filter((a) => a.image);
+  const feImage = withImage.drafts.find((d) => d.layer === "FE");
+  const beImage = withImage.drafts.find((d) => d.layer === "BE");
+  const images = feImage!.sourceContext.flatMap((s) => s.attachments).filter((a) => a.image);
   assert.ok(images.some((a) => a.fileName === "captura-comprobante.png"));
+  assert.equal(beImage!.sourceContext.flatMap((s) => s.attachments).filter((a) => a.image).length, 0);
 
   db.prepare(
     `INSERT INTO work_item_relations(work_item_id, rel_type, target_id, target_url, attributes_json)
      VALUES ((SELECT id FROM work_items WHERE azure_id = 4101), ?, ?, ?, ?)`
   ).run("AttachedFile", "guid-img", "https://example/_apis/wit/attachments/guid-img", JSON.stringify({ name: "pantalla.png" }));
   const withRel = prepareStory(db, config, "4101") as {
-    drafts: Array<{ sourceContext: Array<{ attachments: Array<{ fileName: string; image: boolean }> }> }>;
+    drafts: Array<{ layer: string; sourceContext: Array<{ attachments: Array<{ fileName: string; image: boolean }> }> }>;
   };
-  assert.ok(withRel.drafts[0]!.sourceContext.some((s) => s.attachments.some((a) => a.fileName === "pantalla.png" && a.image)));
+  const feRel = withRel.drafts.find((d) => d.layer === "FE");
+  const beRel = withRel.drafts.find((d) => d.layer === "BE");
+  assert.ok(feRel!.sourceContext.some((s) => s.attachments.some((a) => a.fileName === "pantalla.png" && a.image)));
+  assert.equal(beRel!.sourceContext.flatMap((s) => s.attachments).length, 0);
 
   const preview = previewPublish(db, config, "4101");
   assert.match(preview.operations[0]!.fields["System.Description"], /Más info/);
   assert.match(preview.operations[0]!.fields["System.Description"], /DNI único/);
   assert.match(preview.operations[0]!.fields["System.Description"], /Definición de hecho/);
   db.close();
+});
+
+test("publish de tarea existente agrega extra y no pisa la descripción cargada", () => {
+  const { db, config } = seeded();
+  prepareStory(db, config, "4106");
+  const fe = get<{ id: string }>(db, "SELECT id FROM draft_tasks WHERE parent_id LIKE '%/4106' AND layer = 'FE'");
+  assert.ok(fe);
+  reviewDraft(db, fe.id, "approved");
+  run(db, "UPDATE work_items SET description_html = ? WHERE azure_id = 5104", "<p>Texto original de la tarea FE ya cargado.</p>");
+  run(db, "UPDATE draft_tasks SET azure_id = 5104 WHERE id = ?", fe.id);
+  const preview = previewPublish(db, config, "4106", undefined, { approvedOnly: true });
+  const desc = preview.operations[0]!.fields["System.Description"] ?? "";
+  assert.match(desc, /Texto original de la tarea FE ya cargado/);
+  assert.match(desc, /Objetivo/);
+  assert.ok(desc.indexOf("Texto original de la tarea FE ya cargado") < desc.indexOf("<!--TLC-EXTRA-->"));
+  db.close();
+});
+
+test("descripción Azure existente se conserva y solo se agrega el bloque extra", () => {
+  const extra = azureDescriptionFromPayload({ objetivo: "Objetivo extra", pasos: ["Paso"] });
+  const merged = mergeAzureDescription("<p>Texto original ya cargado</p>", extra);
+  assert.match(merged, /Texto original ya cargado/);
+  assert.match(merged, /Objetivo extra/);
+  assert.ok(merged.indexOf("Texto original ya cargado") < merged.indexOf("TLC-EXTRA"));
+
+  const refreshed = mergeAzureDescription(merged, azureDescriptionFromPayload({ objetivo: "Objetivo nuevo" }));
+  assert.match(refreshed, /Texto original ya cargado/);
+  assert.match(refreshed, /Objetivo nuevo/);
+  assert.doesNotMatch(refreshed, /Objetivo extra/);
+  assert.equal((refreshed.match(/<!--TLC-EXTRA-->/g) ?? []).length, 1);
+});
+
+test("descripción Azure no reinyecta HTML ni borradores TL previos de subtareas", () => {
+  const html = azureDescriptionFromPayload({
+    objetivo: "Objetivo nuevo",
+    expected: "Esperado nuevo",
+    pasos: ["Paso único"],
+    sourceContext: [
+      {
+        azureId: 6550,
+        type: "Task",
+        title: "FE tarea",
+        descriptionHtml: "<p><strong>Objetivo.</strong> Viejo HTML enorme</p>",
+        descriptionText: "Objetivo. Viejo texto. Borrador TL Control 2026-01-01T00:00:00.000Z",
+        acceptanceCriteria: "",
+        comments: [],
+        attachments: []
+      },
+      {
+        azureId: 6546,
+        type: "Product Backlog Item",
+        title: "Historia",
+        descriptionHtml: "<div>Texto crudo historia</div>",
+        descriptionText: "Requisito de negocio sin borrador TL",
+        acceptanceCriteria: "",
+        comments: [],
+        attachments: []
+      }
+    ]
+  });
+  assert.match(html, /Objetivo nuevo/);
+  assert.match(html, /Requisito de negocio sin borrador TL/);
+  assert.doesNotMatch(html, /Viejo HTML enorme/);
+  assert.doesNotMatch(html, /Objetivo\. Viejo texto/);
+});
+
+test("descripción Azure renderiza contrato API con DTO tipado", () => {
+  const html = azureDescriptionFromPayload({
+    objetivo: "Listar dados de baja",
+    contratoApi: [
+      {
+        method: "POST",
+        route: "api/programChange/reactivate/consul",
+        ejemplo: "Controllers/GrillaProgramController.cs",
+        sp: "nweb_programacion_reactiva_consul",
+        requestDto: "public class Foo {\n    public DateTime? emi_desde { get; set; }\n}",
+        responseDto: "Response<List<Bar>>",
+        map: "NCS → ncs_epi_id",
+        frontCall: "api.post('/programChange/reactivate/consul', body)"
+      }
+    ]
+  });
+  assert.match(html, /<h3>Contrato API<\/h3>/);
+  assert.match(html, /POST api\/programChange\/reactivate\/consul/);
+  assert.match(html, /GrillaProgramController/);
+  assert.match(html, /nweb_programacion_reactiva_consul/);
+  assert.match(html, /Request DTO/);
+  assert.match(html, /DateTime\? emi_desde/);
+  assert.match(html, /NCS → ncs_epi_id/);
+  assert.match(html, /api\.post\('\/programChange\/reactivate\/consul'/);
+  assert.match(html, /<br\/>/);
+  assert.doesNotMatch(html, /<pre>/);
+  assert.ok(html.indexOf("Contrato API") < html.indexOf("Objetivo"));
+});
+
+test("descripción Azure BE oculta frontCall y conserva contrato", () => {
+  const html = azureDescriptionFromPayload({
+    layer: "BE",
+    objetivo: "API",
+    contratoApi: [
+      {
+        method: "POST",
+        route: "api/programChange/reactivate/consul",
+        requestDto: "public class Foo {\n    public DateTime? emi_desde { get; set; }\n}",
+        frontCall: "api.post('/programChange/reactivate/consul', body)"
+      }
+    ]
+  });
+  assert.match(html, /Request DTO/);
+  assert.match(html, /<br\/>/);
+  assert.doesNotMatch(html, /api\.post/);
+  assert.doesNotMatch(html, /<pre>/);
+});
+
+test("merge reemplaza extra aunque Azure recorte comentarios", () => {
+  const existing =
+    "<p><strong>Objetivo.</strong> Viejo</p><h3>Pasos</h3><ol><li>x</li></ol><h3>Archivos</h3><ul><li><code>a.js</code></li></ul>";
+  const extra = azureDescriptionFromPayload({
+    objetivo: "Nuevo",
+    contratoApi: [{ method: "POST", route: "api/x", requestDto: "class A {\nint n;\n}" }]
+  });
+  const merged = mergeAzureDescription(existing, extra);
+  assert.match(merged, /Contrato API/);
+  assert.match(merged, /Objetivo\.<\/strong> Nuevo/);
+  assert.doesNotMatch(merged, /Objetivo\.<\/strong> Viejo/);
 });
 
 test("descripción Azure copia contrato, pasos, archivos y definición de hecho", () => {
@@ -736,6 +875,11 @@ test("preguntas funcionales quedan pendientes hasta que las responden", async ()
     db.prepare("SELECT COUNT(*) AS n FROM questions WHERE id LIKE 'qfn-%4108-%'").get().n,
     groups[0]!.questions.length
   );
+  const qfn = all<{ code: string; blocking: number }>(db, "SELECT code, blocking FROM questions WHERE id LIKE 'qfn-%4108-%'");
+  assert.ok(qfn.length > 0);
+  for (const row of qfn) {
+    assert.equal(Number(row.blocking), 0, row.code);
+  }
   analyzeStory(db, config, "4101");
   assert.equal(listFunctionalQuestions(db, config.azure.iterationPath).some((group) => group.azureId === 4101), false);
 

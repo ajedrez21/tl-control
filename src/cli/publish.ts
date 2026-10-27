@@ -2,7 +2,7 @@ import type { Db } from "../storage/db.ts";
 import { all, get, run } from "../storage/db.ts";
 import type { AppConfig } from "../config/types.ts";
 import { resolveWorkItemArg } from "../domain/ids.ts";
-import { azureDescriptionFromPayload } from "../analysis/story.ts";
+import { azureDescriptionFromPayload, mergeAzureDescription } from "../analysis/story.ts";
 import { hasValidAzureId, resolveAssignment } from "../domain/members.ts";
 import { AzureDevOpsClient, persistWorkItems, type AzureWorkItem } from "../adapters/azure/client.ts";
 import { FetchHttpClient } from "../adapters/http.ts";
@@ -60,18 +60,28 @@ export function previewPublish(
       revision: parent.source_revision,
       title: parent.title
     },
-    operations: drafts.map((d) => ({
-      idempotencyKey: d.idempotency_key,
-      type: config.azure.workItemTypes.task,
-      fields: {
-        "System.Title": d.title,
-        "System.IterationPath": config.azure.iterationPath,
-        "System.Description": azureDescriptionFromPayload(parseDraftPayload(d.payload_json))
-      },
-      relations: [{ rel: "System.LinkTypes.Hierarchy-Reverse", target: String(parent.azure_id) }],
-      assignedTo: resolveAssignment(config, d.assigned_to_id).assignedTo,
-      azureId: d.azure_id
-    })),
+    operations: drafts.map((d) => {
+      const extra = azureDescriptionFromPayload(parseDraftPayload(d.payload_json));
+      const existing = d.azure_id
+        ? get<{ description_html: string | null }>(
+            db,
+            "SELECT description_html FROM work_items WHERE azure_id = ?",
+            d.azure_id
+          )?.description_html
+        : null;
+      return {
+        idempotencyKey: d.idempotency_key,
+        type: config.azure.workItemTypes.task,
+        fields: {
+          "System.Title": d.title,
+          "System.IterationPath": config.azure.iterationPath,
+          "System.Description": d.azure_id ? mergeAzureDescription(existing, extra) : extra
+        },
+        relations: [{ rel: "System.LinkTypes.Hierarchy-Reverse", target: String(parent.azure_id) }],
+        assignedTo: resolveAssignment(config, d.assigned_to_id).assignedTo,
+        azureId: d.azure_id
+      };
+    }),
     conflict,
     expectedRevision: expectedRevision ?? currentRevision,
     currentRevision
@@ -130,9 +140,7 @@ export async function applyPublish(
     try {
       if (op.azureId) {
         const fields: Record<string, string> = {
-          "System.Title": title,
-          "System.Description": op.fields["System.Description"] ?? "",
-          "System.IterationPath": op.fields["System.IterationPath"] ?? config.azure.iterationPath
+          "System.Description": op.fields["System.Description"] ?? ""
         };
         if (identity) fields["System.AssignedTo"] = identity;
         const item = await azure.updateWorkItemFields(op.azureId, fields);

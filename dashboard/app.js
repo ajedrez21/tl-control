@@ -1209,12 +1209,25 @@ function draftHtml(d, team, defaultOwnerId) {
     ${fallbackNote}
     ${p.objetivo ? `<p><strong>Objetivo.</strong> ${esc(p.objetivo)}</p>` : ""}
     ${p.expected && p.expected !== "UNKNOWN" ? `<p><strong>Esperado.</strong> ${esc(p.expected)}</p>` : ""}
-    ${p.contract ? `<p class="hint">Contrato: ${esc(p.contract)}</p>` : ""}
-    ${sourceContextHtml(p.sourceContext)}
+    ${contratoApiHtml(p.contratoApi, d.layer === "BE")}
     ${pasos.length ? `<h4>Pasos</h4>${ol(pasos, (step) => `<li>${esc(step)}</li>`)}` : ""}
     ${files.length ? `<h4>Archivos</h4>${ul(files, (f) => `<li><code>${esc(f)}</code></li>`)}` : ""}
     ${dod.length ? `<h4>DoD</h4>${ul(dod, (item) => `<li>${esc(item)}</li>`)}` : ""}
+    ${sourceContextHtml(p.sourceContext)}
   </article>`;
+}
+
+function contratoApiHtml(items, hideFront) {
+  if (!items?.length) return "";
+  return `<h4>Contrato API</h4>${items.map((item) => `<div class="source-ctx">
+    <p><strong>${esc(item.method || "")} ${esc(item.route || "")}</strong></p>
+    ${item.ejemplo ? `<p class="hint">Patrón: ${esc(item.ejemplo)}</p>` : ""}
+    ${item.sp ? `<p><strong>SP.</strong> <code>${esc(item.sp)}</code></p>` : ""}
+    ${!hideFront && item.frontCall ? `<p><strong>Front.</strong></p><pre>${esc(item.frontCall)}</pre>` : ""}
+    ${item.requestDto ? `<p><strong>Request DTO</strong></p><pre>${esc(item.requestDto)}</pre>` : ""}
+    ${item.responseDto ? `<p><strong>Response DTO</strong></p><pre>${esc(item.responseDto)}</pre>` : ""}
+    ${item.map ? `<p><strong>Mapeo SP → DTO</strong></p><pre>${esc(item.map)}</pre>` : ""}
+  </div>`).join("")}`;
 }
 
 function sourceContextHtml(items) {

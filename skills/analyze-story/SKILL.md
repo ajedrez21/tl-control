@@ -22,11 +22,21 @@ ID numérico o `org/proyecto/id`.
 6. Clasificar cada conclusión: `CONFIRMED` | `INFERRED` | `UNKNOWN`.
 7. Si hay repo `localPath`, el CLI busca candidatos reales. Símbolo no encontrado = hipótesis, no archivo.
 8. Repo inaccesible = análisis parcial; no afirmar contexto técnico validado.
-9. Mostrar contradicciones y preguntas concretas, incluyendo las que vengan de subtareas.
+9. **Armado mínimo.** Con PBI + capturas + subtareas, decir si alcanza para armar. Si no, informar **qué falta**, no una lista larga:
+    - Contrato SP (nombre/params) ausente en subtarea DB → **bloqueante**.
+    - Más info de referencia solo si sin eso no se puede armar el flujo.
+10. **Consultas de corroboración** (no bloquean armar ni ejecutar tareas; se responden después):
+    - Nombre del ítem de menú (puede ser el título del mockup, p. ej. Deleted Programs; hay que confirmarlo).
+    - Código de permiso/seguridad del ítem nuevo.
+    - Detalle fino de captura, AC formal, textos de UI.
+    No las trates como gaps bloqueantes ni dejes la historia BLOCKED por ellas.
+11. Cardinalidad: si la HU dice **uno**, el contrato es **un** ítem. No promover a lista.
+12. Plan técnico corto si hay SP en subtareas: el front llama al **backend NCSL** (no al SP ni al MW). Consulta → API de listado + DTO según columnas del mockup y nombres del modelo existente. Grabación → API con la misma cardinalidad que la HU. `userName`/`userEmail` del HTTP del back. MW/CS son post-grabado BE.
+13. Al **generar la tarea FE** (`/prepare-story`), incluir las imágenes de la historia como referencia. En BE no.
 
 ## Salidas
 
-JSON de análisis persistido. Fuente y fecha por hallazgo.
+JSON de análisis persistido. Fuente y fecha por hallazgo. Si hay SP en subtareas, contratos API/DTO mínimos. Preguntas solo por lo que falta.
 
 ## Límites de código (obligatorio)
 

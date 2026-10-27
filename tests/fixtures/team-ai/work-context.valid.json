@@ -2,7 +2,7 @@
   "schemaVersion": "team-ai/v1",
   "artifactType": "work-context",
   "artifactId": "ctx-4101-v1",
-  "generatedAt": "2026-10-08T14:08:41.941Z",
+  "generatedAt": "2026-10-22T04:45:37.873Z",
   "workItem": {
     "organization": "fabrikam-demo",
     "project": "TL Control Demo",
@@ -88,7 +88,7 @@
       "kind": "work-item",
       "source": "#4101#description",
       "classification": "CONFIRMED",
-      "observedAt": "2026-10-08T14:08:41.941Z",
+      "observedAt": "2026-10-22T04:45:37.873Z",
       "summary": "Descripción de #4101 Alta de cliente con validación fiscal: Permitir dar de alta un cliente persona jurídica con CUIT y validación AFIP."
     },
     {
@@ -96,7 +96,7 @@
       "kind": "work-item",
       "source": "#4101#ac",
       "classification": "CONFIRMED",
-      "observedAt": "2026-10-08T14:08:41.941Z",
+      "observedAt": "2026-10-22T04:45:37.873Z",
       "summary": "AC de #4101: Dado un CUIT válido, el sistema persiste el cliente y muestra confirmación."
     },
     {
@@ -104,7 +104,7 @@
       "kind": "work-item",
       "source": "#5101#description",
       "classification": "CONFIRMED",
-      "observedAt": "2026-10-08T14:08:41.941Z",
+      "observedAt": "2026-10-22T04:45:37.873Z",
       "summary": "Descripción de #5101 BE: endpoint POST /clientes: Validar DNI único en POST /clientes. Incluir ejemplo del request."
     }
   ],
@@ -128,5 +128,5 @@
       "Contexto mínimo cubierto."
     ]
   },
-  "contextHash": "236c90b19808ac91103a017ad31fac6f5cf053b168a0e829b17fe5bb7a9abc68"
+  "contextHash": "50764743df1f78363ff99d654d2086cfc304729d244ae83bf7eaa71109dac1c1"
 }
